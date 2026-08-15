@@ -73,3 +73,58 @@ weight-quant-only path.
   the first PR; correctness first, speed later.
 
 *the constellation · 0 + 1 · fine touch from within · vaked.dev*
+
+## Update 2026-08-13 — tiszta ternary + parity-debug megállapításai
+
+### A parity-hiba eddigi diagnózisa (a régi sign-alapú demo-n)
+
+A `quantal_to_bitnet.py` parity-teszt FAIL: transformers argmax 91812 vs
+golden 35929 (max_abs ~20). A bisectálás megállapításai:
+
+- **q/k/v, RoPE cos/sin, mask, scaling mind pontosak** (layer-0 szinten a
+  transformers és a manuális numpy/torch egyezik).
+- **A `eager_attention_forward` és a manuális torch attention EGYEZIK**
+  (`dbg_tf17`, `dbg_tf21`) — tehát a transformers bitnet attention helyes.
+- **A `repeat_kv` == `repeat_interleave`** (`dbg_tf20`).
+- A **layer-0 attn_out a teljes `model(x)` forwardban és a külső manuális
+  között eltér** (`dbg_tf11` [0.130] vs `dbg_tf17` [-0.0009]) — ez a
+  rejtély, valószínűleg a `model(x)` belső mask/causal kezelése és a külső
+  triu mask közötti finom eltérés.
+
+### Mit jelent ez a nightly után
+
+- A **nightly a tiszta ternary-t** tréningeli (per-group scale, 0-állapot).
+  Az új exporttel a parity-tesztet **újra kell futtatni** — a kódok
+  (0/1/2) és a scales másképp néznek ki, de a dequant-formátum ugyanaz.
+- A parity-hiba oka **a transformers bitnet modul és a Qwen2.5 közti
+  finom forward-eltérés** — a nightly checkpointra az egész
+  (export + parity) egyszerre újraértékelendő.
+- A `dbg_tf21`-szerű explicit forward a folytatás kiindulópontja.
+
+### A nightly állapota (2026-08-13)
+
+- RTX PRO 6000 (vast 47647576), `MLX_CUDA_GRAPH_CACHE_SIZE=2000` fix.
+- 40 epoch, 20,007-es korpusz, deployed-forward + tiszta ternary.
+- 7. epoch: loss 0.12-0.17 (a régi 1.3-1.9-hez képest drámai javulás).
+- Best a curve-ben, `ckpts-nightly/quantal-long-best.safetensors`.
+
+## Update 2026-08-13 — A parity-hiba MEGOLDVA
+
+A transformers-PR parity FAIL oka a **PyPI 5.15.0 `BitNetMLP`/`BitNetAttention`**:
+a `use_sub_norms` flag NINCS implementálva — a `ffn_sub_norm` és az
+`attn_sub_norm` **mindig** létrejön és alkalmazódik a forwardban. Ezért a
+deployed-forward (sub-norm nélküli) modell eltér a transformers-től.
+
+A `/root/src` (transformers **5.16.0.dev0**) viszont helyesen kezeli:
+`BitNetRMSNorm(...) if config.use_sub_norms else None` (modeling_bitnet.py:80,
+189). Ezzel a parity-teszt **PASS**: max_abs 6.5e-06, argmax 71703=71703
+mindkét promptnál — szorosabb, mint a Rust parity (1.3e-5).
+
+### Mit jelent a PR-hez
+
+- A transformers-PR-nek a **`use_sub_norms` támogatást** kell tartalmaznia
+  (a PyPI 5.15.0-ból hiányzik; a dev-branchben megvan). A PR a dev-ből
+  a `BitNetMLP`/`BitNetAttention` `use_sub_norms`-kezelését hozza be.
+- A parity-teszt (PyTorch vs golden, 1e-5) már működik — a `--ref` a
+  golden vanilla, a `--model-dir` a demo-nightly.
+- A config `use_sub_norms=False` a deployed-forwardnak felel meg.

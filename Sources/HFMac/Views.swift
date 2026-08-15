@@ -936,7 +936,7 @@ struct CapsuleListView: View {
                 }
             }
         }
-        .task { capsules = await state.processManager.ayeosCapsules() ?? [] }
+        .task { capsules = await state.processManager.ayeosCapsules() }
     }
 }
 

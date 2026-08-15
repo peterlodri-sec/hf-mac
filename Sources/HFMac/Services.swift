@@ -483,8 +483,7 @@ struct AyeosClient: Sendable {
 
     /// Send a text command over TCP and return the response.
     func sendCommand(_ cmd: String) async throws -> String {
-        var response = ""
-        try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
+        try await withCheckedThrowingContinuation { (c: CheckedContinuation<String, Error>) in
             DispatchQueue.global().async {
                 var readStream: Unmanaged<CFReadStream>?
                 var writeStream: Unmanaged<CFWriteStream>?
@@ -503,14 +502,14 @@ struct AyeosClient: Sendable {
                 CFReadStreamOpen(read)
                 var buf = [UInt8](repeating: 0, count: 4096)
                 let n = CFReadStreamRead(read, &buf, 4096)
+                var response = ""
                 if n > 0 {
                     response = String(bytes: buf[..<n], encoding: .utf8) ?? ""
                 }
                 CFReadStreamClose(read)
-                c.resume()
+                c.resume(returning: response)
             }
         }
-        return response
     }
 
     /// Check if the ayeOS daemon is reachable.
