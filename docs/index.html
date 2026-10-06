@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HF-MAC {-1, 0, +1} — Native macOS Hugging Face Client on Apple Silicon</title>
   <meta name="description" content="HF-MAC: Browse the Hugging Face Hub, run models locally on Apple Silicon via Osaurus, and chat from a real window or menu-bar agent. Unified surface for the 8b-is stack: entheai + ayeOS + MEM8 + MLX-QUANT + HF Accelerate + hf-mount. Ternary: {-1, 0, +1}.">
-  <meta name="keywords" content="Hugging Face, macOS, Apple Silicon, M1, M2, M3, M4, Osaurus, local LLM, MLX, open-weight models, Swift, SwiftUI, on-device AI, privacy, MoE, Mixture of Experts">
+  <meta name="keywords" content="Hugging Face, macOS, Apple Silicon, M1, M2, M3, M4, Osaurus, local LLM, MLX, open-weight models, Swift, SwiftUI, on-device AI, privacy, MoE, Mixture of Experts, ternary, BitNet">
   <meta name="author" content="8b-is / vaked constellation">
   <meta name="robots" content="index, follow">
   <meta name="theme-color" content="#090d16">
   <link rel="canonical" href="https://8b-is.github.io/hf-mac/">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🜂</text></svg>">
-  
+
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://8b-is.github.io/hf-mac/">
@@ -29,7 +29,7 @@
   <meta name="twitter:title" content="HF-MAC {-1, 0, +1} — Native macOS Hugging Face Client on Apple Silicon">
   <meta name="twitter:description" content="HF-MAC: Browse the Hub, run models locally on Apple Silicon via Osaurus, and chat from a real window or menu-bar agent. Unified surface for the 8b-is stack with ternary {-1, 0, +1} identity.">
   <meta name="twitter:image" content="https://8b-is.github.io/hf-mac/assets/images/og_image.png">
-  
+
   <!-- Structured Data / JSON-LD -->
   <script type="application/ld+json">
   {
@@ -40,7 +40,7 @@
     "applicationCategory": "DeveloperApplication",
     "description": "Native macOS Hugging Face client on Apple Silicon. Browse the Hub, play Spaces, and run models locally via Osaurus.",
     "downloadUrl": "https://github.com/8b-is/hf-mac/releases/tag/v0.12.0",
-    "softwareVersion": "0.10.0",
+    "softwareVersion": "0.12.0",
     "author": {
       "@type": "Organization",
       "name": "8b-is / vaked constellation",
@@ -49,23 +49,31 @@
     "license": "https://opensource.org/licenses/MIT"
   }
   </script>
-  
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- scroll progress -->
+  <div class="scroll-progress" id="scrollProgress" aria-hidden="true"></div>
+  <!-- cursor spotlight -->
+  <div class="spotlight" id="spotlight" aria-hidden="true"></div>
+  <!-- grain -->
+  <div class="grain" aria-hidden="true"></div>
 
   <!-- Navigation -->
   <nav class="navbar" id="navbar">
     <div class="container nav-container">
       <a href="#" class="brand">
-        <span class="brand-badge">🜂</span> HF-MAC{-1,0,+1}
+        <span class="brand-badge">🜂</span> HF-MAC<span class="mono-tern">&nbsp;{-1,0,+1}</span>
       </a>
       <ul class="nav-links">
         <li><a href="#features">Features</a></li>
+        <li><a href="#pipeline">Pipeline</a></li>
+        <li><a href="#moe">MoE</a></li>
         <li><a href="#architecture">Architecture</a></li>
         <li><a href="#docs">Documentation</a></li>
         <li><a href="#quickstart">Quick Start</a></li>
@@ -79,108 +87,236 @@
 
   <!-- Hero Section -->
   <header class="hero">
-    <div class="container">
-      <div class="badge-pill">
-        <span>🜂</span> HF-MAC{-1,0,+1} — Native Apple Silicon macOS Client
+    <canvas class="ternary-field" id="ternaryField" aria-hidden="true"></canvas>
+    <div class="hero-glow" aria-hidden="true"></div>
+    <div class="container hero-inner">
+      <div class="badge-pill reveal">
+        <span class="dot"></span> HF-MAC{-1,0,+1} — Native Apple Silicon macOS Client
       </div>
-      <h1>HF-MAC <!--  -->{-1, 0, +1}.<br><span class="gradient-text">Browse HF Hub. Run Locally. Zero Cloud.</span></h1>
-      <p class="hero-subtitle">
-        The thin, honest macOS front-end for Hugging Face — unified surface for the <strong>8b-is stack</strong>. Driven by <strong>Osaurus</strong> for MLX local inference, <strong>entheai</strong> for agent decomposition, <strong>MEM8</strong> for wave memory, <strong>ayeOS</strong> for ternary inference, <strong>MLX-QUANT</strong> for Metal kernels, <strong>HF Accelerate</strong> for MPS training, and <strong>hf-mount</strong> for repo filesystems — all under one ternary identity.
+      <h1 class="reveal">
+        The ternary interface to <span class="gradient-text">Hugging Face</span>, on your Mac.
+      </h1>
+      <p class="hero-subtitle reveal">
+        The thin, honest macOS front-end for Hugging Face — a unified surface for the <strong>8b-is stack</strong>. Driven by <strong>Osaurus</strong> for MLX local inference, <strong>entheai</strong> for agent decomposition, <strong>MEM8</strong> for wave memory, <strong>ayeOS</strong> for ternary inference, <strong>MLX-QUANT</strong> for Metal kernels, <strong>HF&nbsp;Accelerate</strong> for MPS training, and <strong>hf-mount</strong> for repo filesystems — all under one ternary identity: <span class="tern-ink">{-1, 0, +1}</span>.
       </p>
-      
-      <div class="hero-actions">
-        <a href="https://github.com/8b-is/hf-mac/releases/latest" class="btn btn-primary" target="_blank" rel="noopener">
+
+      <div class="hero-actions reveal">
+        <a href="https://github.com/8b-is/hf-mac/releases/latest" class="btn btn-primary btn-magnetic" target="_blank" rel="noopener">
           ⬇ Download for macOS
         </a>
-        <a href="#quickstart" class="btn btn-secondary">
-          Quick Start
-        </a>
-        <a href="https://github.com/8b-is/hf-mac" class="btn btn-secondary" target="_blank" rel="noopener">
-          View Source
-        </a>
+        <a href="#quickstart" class="btn btn-secondary">Quick Start</a>
+        <a href="https://github.com/8b-is/hf-mac" class="btn btn-ghost" target="_blank" rel="noopener">View Source ↗</a>
       </div>
-      <p class="hero-meta">
+      <p class="hero-meta reveal">
         <a href="https://github.com/8b-is/hf-mac/releases/download/v0.12.0/hf-mac-v0.12.0.dmg"><strong>v0.12.0</strong></a>
         · notarized &amp; stapled · Apple Silicon (arm64) · macOS 14 Sonoma+
       </p>
 
-      <div class="hero-visual">
-        <img src="assets/images/readme_hero.png" alt="hf.app Widescreen Flagship Header Visual" width="1000" height="600" loading="eager">
+      <!-- live product frame -->
+      <div class="product-frame reveal">
+        <div class="frame-bar">
+          <span class="frame-dot r"></span><span class="frame-dot y"></span><span class="frame-dot g"></span>
+          <span class="frame-title">hf.app — Spaces · Articles · Models · Run · Yours · Ecosystem</span>
+          <span class="frame-badge">● on-device</span>
+        </div>
+        <img src="assets/images/readme_hero.png" alt="hf.app interface — the native macOS Hugging Face client" width="1000" height="600" loading="eager">
+      </div>
+
+      <!-- live stats -->
+      <div class="stats reveal" id="stats">
+        <div class="stat">
+          <div class="stat-num" data-count="12.8" data-suffix="×" data-decimals="1">0×</div>
+          <div class="stat-label">ternary compression</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num" data-count="100" data-suffix="%">0%</div>
+          <div class="stat-label">on-device · zero cloud</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num" data-count="0" data-suffix="">0</div>
+          <div class="stat-label">telemetry beacons</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num" data-count="6" data-suffix="">0</div>
+          <div class="stat-label">tabs · one window</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num" data-count="1" data-prefix="{-1, 0, +" data-suffix="}">{−1, 0, +1}</div>
+          <div class="stat-label">states, by design</div>
+        </div>
       </div>
     </div>
   </header>
 
   <main>
+    <!-- stack marquee -->
+    <section class="marquee-band" aria-label="the 8b-is stack">
+      <div class="marquee">
+        <div class="marquee-track" id="marqueeTrack">
+          <span>Osaurus · MLX inference</span><span class="sep">🜂</span>
+          <span>entheai · agent decomposition</span><span class="sep">🜂</span>
+          <span>MEM8 · wave memory</span><span class="sep">🜂</span>
+          <span>ayeOS · ternary daemon</span><span class="sep">🜂</span>
+          <span>MLX-QUANT · Metal kernels</span><span class="sep">🜂</span>
+          <span>HF Accelerate · MPS training</span><span class="sep">🜂</span>
+          <span>hf-mount · repo filesystems</span><span class="sep">🜂</span>
+          <span>BitNet b1.58 · {-1, 0, +1}</span><span class="sep">🜂</span>
+        </div>
+      </div>
+    </section>
+
     <!-- Key Features Grid -->
     <section class="features" id="features">
       <div class="container">
-        <div class="section-header">
-          <h2>Engineered for On-Device Excellence</h2>
+        <div class="section-header reveal">
+          <span class="eyebrow">01 — capabilities</span>
+          <h2>Engineered for on-device excellence</h2>
           <p>Real native macOS app performance with complete data sovereignty and instant accessibility.</p>
         </div>
 
         <div class="grid-3">
-          <div class="card">
+          <article class="card tilt reveal" data-icon="⚡">
             <div class="card-icon">⚡</div>
             <h3>Apple Silicon Native</h3>
             <p>Runs seamlessly on M1/M2/M3/M4 unified memory architectures via Osaurus engine for maximum throughput.</p>
-          </div>
+          </article>
 
-          <div class="card">
+          <article class="card tilt reveal" data-icon="🤗">
             <div class="card-icon">🤗</div>
             <h3>Live HF Hub Search</h3>
             <p>Instant model discovery across Hugging Face Hub repositories with model metadata, tags, and pull triggers.</p>
-          </div>
+          </article>
 
-          <div class="card">
+          <article class="card tilt reveal" data-icon="🜂">
             <div class="card-icon">🜂</div>
-            <h3>Dual Window & Agent UI</h3>
+            <h3>Dual Window &amp; Agent UI</h3>
             <p>Work from a full workspace window or summon the quick prompt agent anytime directly from your macOS Menu Bar.</p>
-          </div>
+          </article>
 
-          <div class="card">
+          <article class="card tilt reveal" data-icon="🧠">
             <div class="card-icon">🧠</div>
             <h3>MoE Optimizer Layer</h3>
             <p>Intent classification (Code, Math, Summary, Creative) that dynamically routes prompts to specialized local models with expert system prompts.</p>
-          </div>
+          </article>
 
-          <div class="card">
+          <article class="card tilt reveal" data-icon="♾️">
             <div class="card-icon">♾️</div>
             <h3>MEM8 Wave Memory</h3>
-            <p>Wave interference recall with entheai-aligned frequency-band classification. On-device, deterministic, zero network — same algorithm as the Rust memory-pp NativeMesh.</p>
-          </div>
+            <p>Wave interference recall with entheai-aligned frequency-band classification. On-device, deterministic, zero network — the same algorithm as the Rust memory-pp NativeMesh.</p>
+          </article>
 
-          <div class="card">
+          <article class="card tilt reveal" data-icon="🔺">
             <div class="card-icon">🔺</div>
             <h3>ayeOS Ternary Daemon</h3>
             <p>Deterministic LINOSV-seeded ternary matrices at 12.80× compression. MEMNET protocol daemon bridged to MLX-QUANT Metal kernels for BitNet b1.58 inference.</p>
-          </div>
+          </article>
 
-          <div class="card">
-            <div class="card-icon">🧠</div>
+          <article class="card tilt reveal" data-icon="🧬">
+            <div class="card-icon">🧬</div>
             <h3>entheai Agent</h3>
             <p>Spawn the entheai agent as a subprocess for fan-out decomposition, codebase analysis, and project-wide operations — all from the Ecosystem tab.</p>
-          </div>
+          </article>
 
-          <div class="card">
+          <article class="card tilt reveal" data-icon="🎙️">
             <div class="card-icon">🎙️</div>
             <h3>Voice · Sidecar Architecture</h3>
             <p>VoiceBackend protocol with swappable Apple-native or 8b-native Rust sidecars (kokoro-tiny TTS, liquid-rust STT). On-device, zero telemetry.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive pipeline -->
+    <section class="pipeline" id="pipeline">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="eyebrow">02 — data flow</span>
+          <h2>One honest pipeline, fully on-device</h2>
+          <p>Browse → pull → recall → route → infer → chat. Hover a stage to see what moves through it — no stage touches a cloud.</p>
+        </div>
+
+        <div class="flow reveal" id="flow" role="list">
+          <button class="flow-node" role="listitem" data-detail="Search the Hub over the public REST API. Metadata only — weights stay where they are until you pull.">
+            <span class="flow-ico">🤗</span><span class="flow-name">Hugging Face Hub</span><span class="flow-tag">discover</span>
+          </button>
+          <span class="flow-link"><i></i></span>
+          <button class="flow-node" role="listitem" data-detail="Osaurus owns the weights, MLX, and serving on localhost:1337 — the only heavy process.">
+            <span class="flow-ico">🦕</span><span class="flow-name">Osaurus</span><span class="flow-tag">inference · MLX</span>
+          </button>
+          <span class="flow-link"><i></i></span>
+          <button class="flow-node" role="listitem" data-detail="MEM8 encodes context into frequency bands and recalls by wave interference — deterministic and offline.">
+            <span class="flow-ico">♾️</span><span class="flow-name">MEM8</span><span class="flow-tag">wave recall</span>
+          </button>
+          <span class="flow-link"><i></i></span>
+          <button class="flow-node" role="listitem" data-detail="The MoE optimizer classifies intent and picks the model + system framing before the request leaves the app.">
+            <span class="flow-ico">🧠</span><span class="flow-name">MoE Router</span><span class="flow-tag">classify · route</span>
+          </button>
+          <span class="flow-link"><i></i></span>
+          <button class="flow-node" role="listitem" data-detail="ayeOS runs BitNet b1.58 ternary inference — {−1, 0, +1} matrices at 12.80× compression over MLX-QUANT Metal kernels.">
+            <span class="flow-ico">🔺</span><span class="flow-name">ayeOS · ternary</span><span class="flow-tag">{-1,0,+1}</span>
+          </button>
+          <span class="flow-link"><i></i></span>
+          <button class="flow-node" role="listitem" data-detail="Streamed tokens back into the window. Your HF token never leaves the macOS Keychain.">
+            <span class="flow-ico">💬</span><span class="flow-name">Chat</span><span class="flow-tag">stream</span>
+          </button>
+        </div>
+        <p class="flow-detail" id="flowDetail">Hover a stage to see what moves through it.</p>
+      </div>
+    </section>
+
+    <!-- Interactive MoE demo -->
+    <section class="moe-demo" id="moe">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="eyebrow">03 — live demo</span>
+          <h2>The MoE optimizer, in your browser</h2>
+          <p>Type a prompt — or pick an example — and watch the on-device classifier pick a domain expert and a local model. This is the same logic <code>MoEOptimizer.swift</code> runs inside the app.</p>
+        </div>
+
+        <div class="demo-grid">
+          <div class="demo-input reveal">
+            <label for="moeInput">prompt</label>
+            <textarea id="moeInput" rows="4" spellcheck="false" placeholder="e.g. write a Swift function that debounces a closure…"></textarea>
+            <div class="demo-examples" id="moeExamples">
+              <button data-example="Refactor this Rust borrow checker error and explain the lifetime">Rust lifetime</button>
+              <button data-example="Solve for x: 3x + 7 = 22, step by step">math, step by step</button>
+              <button data-example="Summarize this changelog into three bullets for a release note">summarize</button>
+              <button data-example="Write the opening paragraph of a techno-buddhist cyberpunk novel">creative</button>
+            </div>
+          </div>
+
+          <div class="demo-output reveal">
+            <div class="demo-verdict">
+              <div class="verdict-domain">
+                <span class="verdict-ico" id="domainIco">🧠</span>
+                <span class="verdict-name" id="domainName">General</span>
+              </div>
+              <span class="verdict-conf" id="domainConf">—</span>
+            </div>
+            <div class="verdict-row"><span>recommended model</span><code id="recModel">any active Osaurus model</code></div>
+            <div class="verdict-row"><span>system framing</span><code id="sysFrame">concise, high-throughput general assistant</code></div>
+            <div class="meter"><div class="meter-fill" id="meterFill"></div></div>
+            <div class="verdict-bar" id="verdictBar" aria-hidden="true"></div>
           </div>
         </div>
       </div>
     </section>
 
     <!-- Architecture & Showcase -->
-    <section class="container" id="architecture">
-      
+    <section class="container showcase" id="architecture">
+      <div class="section-header reveal">
+        <span class="eyebrow">04 — architecture</span>
+        <h2>Clean separation, all the way down</h2>
+        <p>A thin SwiftUI shell over engines that own the heavy work.</p>
+      </div>
+
       <!-- Showcase Row 1: Privacy -->
       <div class="showcase-row">
-        <div class="showcase-content">
-          <span class="badge-pill">100% Private</span>
-          <h3>Your Weights, Your Memory, Your Mac</h3>
+        <div class="showcase-content reveal">
+          <span class="badge-pill"><span class="dot"></span>100% Private</span>
+          <h3>Your weights, your memory, your Mac</h3>
           <p>
-            `hf.app` acts as an honest interface layer. It never embeds bulky weights or runs heavy background telemetry. Everything heavy is executed on-device by Osaurus on localhost:1337.
+            <code>hf.app</code> acts as an honest interface layer. It never embeds bulky weights or runs heavy background telemetry. Everything heavy is executed on-device by Osaurus on <code>localhost:1337</code>.
           </p>
           <ul class="showcase-list">
             <li><span>✓</span> Full offline functionality once models are pulled</li>
@@ -188,96 +324,96 @@
             <li><span>✓</span> Sandboxed network client architecture</li>
           </ul>
         </div>
-        <div class="showcase-img-wrap">
+        <div class="showcase-img-wrap reveal">
           <img src="assets/images/privacy_local_graphic.png" alt="100% Private Local AI Execution" width="600" height="600" loading="lazy">
         </div>
       </div>
 
       <!-- Showcase Row 2: Architecture -->
       <div class="showcase-row reverse">
-        <div class="showcase-content">
-          <span class="badge-pill">Clean Separation</span>
-          <h3>Data Flow & Architecture</h3>
+        <div class="showcase-content reveal">
+          <span class="badge-pill"><span class="dot"></span>Clean Separation</span>
+          <h3>Data flow &amp; architecture</h3>
           <p>
             Browse models on Hugging Face Hub → pull into Osaurus → MEM8 wave recall → MoE auto-route → ayeOS ternary inference → chat locally. The full 8b-is stack: Osaurus (inference), entheai (agent), MEM8 (wave memory), MLX-QUANT (ternary), ayeOS (daemon).
           </p>
           <ul class="showcase-list">
-            <li><span>✓</span> <strong>MoEOptimizer.swift:</strong> Intent Classifier & Model Router</li>
-            <li><span>✓</span> <strong>Memory.swift:</strong> MEM8 Wave Interference Recall</li>
+            <li><span>✓</span> <strong>MoEOptimizer.swift:</strong> intent classifier &amp; model router</li>
+            <li><span>✓</span> <strong>Memory.swift:</strong> MEM8 wave interference recall</li>
             <li><span>✓</span> <strong>Services.swift:</strong> HubClient · OsaurusClient · AyeosClient · EntheaiClient</li>
-            <li><span>✓</span> <strong>HFMacApp.swift:</strong> MainActor Observable AppState + ProcessManager</li>
+            <li><span>✓</span> <strong>HFMacApp.swift:</strong> MainActor <code>@Observable</code> AppState + ProcessManager</li>
             <li><span>✓</span> <strong>Views.swift:</strong> SwiftUI WindowGroup + MenuBarExtra + Ecosystem tab</li>
           </ul>
         </div>
-        <div class="showcase-img-wrap">
+        <div class="showcase-img-wrap reveal">
           <img src="assets/images/architecture_diagram.png" alt="hf-mac Architecture & Data Flow Diagram" width="600" height="600" loading="lazy">
         </div>
       </div>
 
-      <!-- Showcase Row 3: MoE Optimizer Showcase -->
+      <!-- Showcase Row 3: MoE Showcase -->
       <div class="showcase-row">
-        <div class="showcase-content">
-          <span class="badge-pill">🧠 Intelligent Routing</span>
-          <h3>MoE Optimizer Layer</h3>
+        <div class="showcase-content reveal">
+          <span class="badge-pill"><span class="dot"></span>🧠 Intelligent Routing</span>
+          <h3>MoE optimizer layer</h3>
           <p>
             Zero-latency prompt intent classification directly inside the Swift app. Automatically detects code, math/reasoning, summarization, or creative prompts and routes them to specialized local models.
           </p>
           <ul class="showcase-list">
             <li><span>✓</span> <strong>Code Expert:</strong> Swift, Rust, Python, HTML formatting</li>
-            <li><span>✓</span> <strong>Reasoning & Math Expert:</strong> Step-by-step logic framing</li>
-            <li><span>✓</span> <strong>Summarization & Creative Experts:</strong> Domain system prompts</li>
-            <li><span>✓</span> <strong>Dynamic Model Router:</strong> Matches active Osaurus model capabilities</li>
+            <li><span>✓</span> <strong>Reasoning &amp; Math Expert:</strong> step-by-step logic framing</li>
+            <li><span>✓</span> <strong>Summarization &amp; Creative Experts:</strong> domain system prompts</li>
+            <li><span>✓</span> <strong>Dynamic Model Router:</strong> matches active Osaurus model capabilities</li>
           </ul>
         </div>
-        <div class="showcase-img-wrap">
+        <div class="showcase-img-wrap reveal">
           <img src="assets/images/architecture_diagram.png" alt="MoE Optimizer Intent Classification & Routing" width="600" height="600" loading="lazy">
         </div>
       </div>
 
       <!-- Showcase Row 4: Menu Bar -->
       <div class="showcase-row reverse">
-        <div class="showcase-content">
-          <span class="badge-pill">Always Accessible</span>
-          <h3>Menu Bar Agent Assistant</h3>
+        <div class="showcase-content reveal">
+          <span class="badge-pill"><span class="dot"></span>Always Accessible</span>
+          <h3>Menu bar agent assistant</h3>
           <p>
             Need a fast code snippet, translation, or summary? Hit your menu bar icon anytime to open the quick prompt window without interrupting your workflow.
           </p>
           <ul class="showcase-list">
             <li><span>✓</span> Lightweight floating popover window</li>
             <li><span>✓</span> Instant context switching</li>
-            <li><span>✓</span> Shared state with main window</li>
+            <li><span>✓</span> Shared state with the main window</li>
           </ul>
         </div>
-        <div class="showcase-img-wrap">
+        <div class="showcase-img-wrap reveal">
           <img src="assets/images/menubar_agent_graphic.png" alt="macOS Menu Bar Quick AI Assistant" width="600" height="600" loading="lazy">
         </div>
       </div>
-
     </section>
 
     <!-- Interactive Documentation Section -->
     <section class="docs-section" id="docs">
       <div class="container">
-        <div class="section-header">
-          <h2>Documentation & Setup Guide</h2>
+        <div class="section-header reveal">
+          <span class="eyebrow">05 — documentation</span>
+          <h2>Documentation &amp; setup guide</h2>
           <p>Everything you need to run, build, and extend hf.app on your Mac.</p>
         </div>
 
         <!-- Tabs Navigation -->
-        <div class="tabs-header" id="quickstart">
-          <button class="tab-btn active" data-tab="quickstart" id="tab-btn-quickstart">Quick Start</button>
-          <button class="tab-btn" data-tab="architecture" id="tab-btn-architecture">Codebase Architecture</button>
-          <button class="tab-btn" data-tab="moe" id="tab-btn-moe">MoE Optimizer</button>
-          <button class="tab-btn" data-tab="keychain" id="tab-btn-keychain">Keychain & Security</button>
-          <button class="tab-btn" data-tab="xcode" id="tab-btn-xcode">Build in Xcode</button>
-          <button class="tab-btn" data-tab="publishing" id="tab-btn-publishing">DMG & App Store</button>
+        <div class="tabs-header reveal" id="quickstart">
+          <button class="tab-btn active" data-tab="quickstart">Quick Start</button>
+          <button class="tab-btn" data-tab="architecture">Codebase Architecture</button>
+          <button class="tab-btn" data-tab="moe">MoE Optimizer</button>
+          <button class="tab-btn" data-tab="keychain">Keychain &amp; Security</button>
+          <button class="tab-btn" data-tab="xcode">Build in Xcode</button>
+          <button class="tab-btn" data-tab="publishing">DMG &amp; App Store</button>
         </div>
 
         <!-- Tab 1: Quick Start -->
         <div class="tab-content active" id="tab-quickstart">
           <h3>Install in under a minute</h3>
-          <p><strong>1 · Get the app.</strong> Download the <a href="https://github.com/8b-is/hf-mac/releases/latest" target="_blank" rel="noopener" style="color: var(--hf-yellow);">latest&nbsp;.dmg (v0.12.0)</a>, open it, and drag <strong>hf.app</strong> into Applications. It's Developer-ID signed &amp; notarized, so it opens with no Gatekeeper warning — no <code>xattr</code> dance.</p>
-          <p><strong>2 · Get the engine.</strong> Install <a href="https://github.com/osaurus-ai/osaurus" target="_blank" rel="noopener" style="color: var(--hf-yellow);">Osaurus</a> and start it on <code>localhost:1337</code>. hf.app is the thin front-end; Osaurus owns the weights, MLX, and serving.</p>
+          <p><strong>1 · Get the app.</strong> Download the <a href="https://github.com/8b-is/hf-mac/releases/latest" target="_blank" rel="noopener">latest&nbsp;.dmg (v0.12.0)</a>, open it, and drag <strong>hf.app</strong> into Applications. It's Developer-ID signed &amp; notarized, so it opens with no Gatekeeper warning — no <code>xattr</code> dance.</p>
+          <p><strong>2 · Get the engine.</strong> Install <a href="https://github.com/osaurus-ai/osaurus" target="_blank" rel="noopener">Osaurus</a> and start it on <code>localhost:1337</code>. hf.app is the thin front-end; Osaurus owns the weights, MLX, and serving.</p>
           <p><strong>3 · Pull &amp; run.</strong> Pull a model in Osaurus (Llama, Qwen, Phi…), then hit <strong>Refresh</strong> in the <em>Run</em> tab of hf.app. Real tokens/sec, fully on-device — your HF token stays in the macOS Keychain.</p>
 
           <h3 style="margin-top: 32px;">Run from source (developers)</h3>
@@ -296,7 +432,7 @@ swift run</code>
         <!-- Tab 2: Codebase Architecture -->
         <div class="tab-content" id="tab-architecture">
           <h3>Swift codebase — <code>Sources/HFMac/</code></h3>
-          <p>Ten single-responsibility files, ~1,600 lines total. hf.app drives <a href="https://github.com/osaurus-ai/osaurus" target="_blank" rel="noopener" style="color: var(--hf-yellow);">Osaurus</a> for inference, <a href="https://github.com/entropy-om/entheai" target="_blank" rel="noopener" style="color: var(--hf-yellow);">entheai</a> for agent tasks, and <a href="https://github.com/8b-is/ayeos" target="_blank" rel="noopener" style="color: var(--hf-yellow);">ayeOS</a> for ternary inference — it never bundles weights or a model runtime. Read by layer:</p>
+          <p>Ten single-responsibility files, ~1,600 lines total. hf.app drives <a href="https://github.com/osaurus-ai/osaurus" target="_blank" rel="noopener">Osaurus</a> for inference, <a href="https://github.com/entropy-om/entheai" target="_blank" rel="noopener">entheai</a> for agent tasks, and <a href="https://github.com/8b-is/ayeos" target="_blank" rel="noopener">ayeOS</a> for ternary inference — it never bundles weights or a model runtime. Read by layer:</p>
 
           <div class="arch-map">
             <div class="arch-group">
@@ -308,7 +444,7 @@ swift run</code>
               </div>
               <div class="arch-row">
                 <span class="arch-file">MoEOptimizer.swift</span>
-                <span class="arch-role">Mixture of Experts layer — prompt intent classifier (`ExpertDomain`) and intelligent local model auto-router.</span>
+                <span class="arch-role">Mixture of Experts layer — prompt intent classifier (<code>ExpertDomain</code>) and intelligent local model auto-router.</span>
                 <span class="arch-loc">90 loc</span>
               </div>
             </div>
@@ -317,12 +453,12 @@ swift run</code>
               <div class="arch-group-label">Data &amp; services</div>
               <div class="arch-row">
                 <span class="arch-file">Memory.swift</span>
-                <span class="arch-role"><strong>MEM8 wave recall</strong> — port of MEM8 from smart-tree's `wave.rs` to native Swift. Frequency-band encoding + interference scoring. Same algorithm as entheai's Rust `mesh.rs` `wave_scorer`. On-device, deterministic.</span>
+                <span class="arch-role"><strong>MEM8 wave recall</strong> — port of MEM8 from smart-tree's <code>wave.rs</code> to native Swift. Frequency-band encoding + interference scoring. Same algorithm as entheai's Rust <code>mesh.rs</code> <code>wave_scorer</code>. On-device, deterministic.</span>
                 <span class="arch-loc">140 loc</span>
               </div>
               <div class="arch-row">
                 <span class="arch-file">VoiceEngine.swift</span>
-                <span class="arch-role"><strong>VoiceBackend protocol</strong> — Apple-native `AVSpeechSynthesizer`/`SFSpeechRecognizer` plus `ProcessVoiceBackend` for 8b-native Rust sidecars (kokoro-tiny TTS, liquid-rust STT). Swappable at runtime.</span>
+                <span class="arch-role"><strong>VoiceBackend protocol</strong> — Apple-native <code>AVSpeechSynthesizer</code>/<code>SFSpeechRecognizer</code> plus <code>ProcessVoiceBackend</code> for 8b-native Rust sidecars (kokoro-tiny TTS, liquid-rust STT). Swappable at runtime.</span>
                 <span class="arch-loc">200 loc</span>
               </div>
               <div class="arch-row">
@@ -365,18 +501,18 @@ swift run</code>
 
         <!-- Tab 3: MoE Optimizer -->
         <div class="tab-content" id="tab-moe">
-          <h3>Mixture of Experts (MoE) Intent Classifier &amp; Router</h3>
+          <h3>Mixture of Experts (MoE) intent classifier &amp; router</h3>
           <p>The <code>MoEOptimizer</code> module (<code>Sources/HFMac/MoEOptimizer.swift</code>) performs on-device intent classification before sending prompts to your local Osaurus server. It evaluates user input across five domain experts:</p>
-          
+
           <ul class="showcase-list" style="margin-top: 16px;">
-            <li><span>⚡</span> <strong>Code Expert:</strong> Injects software engineering system prompts and routes to <code>coder</code>/<code>qwen</code> models.</li>
-            <li><span>📐</span> <strong>Reasoning &amp; Math Expert:</strong> Formats step-by-step reasoning instructions and routes to <code>reasoning</code>/<code>r1</code> models.</li>
-            <li><span>📝</span> <strong>Summarization Expert:</strong> Formats actionable bullet-point extraction instructions.</li>
-            <li><span>🎨</span> <strong>Creative Writing Expert:</strong> Enhances creative storytelling and drafting prompts.</li>
-            <li><span>🧠</span> <strong>General Expert:</strong> High-throughput, concise general responses.</li>
+            <li><span>⚡</span> <strong>Code Expert:</strong> injects software engineering system prompts and routes to <code>coder</code>/<code>qwen</code> models.</li>
+            <li><span>📐</span> <strong>Reasoning &amp; Math Expert:</strong> formats step-by-step reasoning instructions and routes to <code>reasoning</code>/<code>r1</code> models.</li>
+            <li><span>📝</span> <strong>Summarization Expert:</strong> formats actionable bullet-point extraction instructions.</li>
+            <li><span>🎨</span> <strong>Creative Writing Expert:</strong> enhances creative storytelling and drafting prompts.</li>
+            <li><span>🧠</span> <strong>General Expert:</strong> high-throughput, concise general responses.</li>
           </ul>
-          
-          <h3 style="margin-top: 24px;">How it Works</h3>
+
+          <h3 style="margin-top: 24px;">How it works</h3>
           <div class="code-block">
             <div class="code-header">
               <span>SWIFT — MoEOptimizer.swift</span>
@@ -395,9 +531,9 @@ swift run</code>
 
         <!-- Tab 4: Security & Keychain -->
         <div class="tab-content" id="tab-keychain">
-          <h3>Keychain & Entitlements Security</h3>
-          <p>The app holds two secrets — your Hugging Face token and the optional Osaurus key — in the system Keychain via macOS <code>Security.framework</code> (<code>kSecClassGenericPassword</code>, service <code>hf.app</code>). Never written to disk in the clear. Full policy: <a href="https://github.com/8b-is/hf-mac/blob/main/SECURITY.md" target="_blank" rel="noopener" style="color: var(--hf-yellow);">SECURITY.md</a>.</p>
-          
+          <h3>Keychain &amp; entitlements security</h3>
+          <p>The app holds two secrets — your Hugging Face token and the optional Osaurus key — in the system Keychain via macOS <code>Security.framework</code> (<code>kSecClassGenericPassword</code>, service <code>hf.app</code>). Never written to disk in the clear. Full policy: <a href="https://github.com/8b-is/hf-mac/blob/main/SECURITY.md" target="_blank" rel="noopener">SECURITY.md</a>.</p>
+
           <div class="code-block">
             <div class="code-header">
               <span>ENTITLEMENTS</span>
@@ -419,7 +555,7 @@ swift run</code>
         <!-- Tab 5: Build in Xcode -->
         <div class="tab-content" id="tab-xcode">
           <h3>Build &amp; run in Xcode</h3>
-          <p>The Xcode project is generated from <code>project.yml</code> (<a href="https://github.com/yonaskolb/XcodeGen" target="_blank" rel="noopener" style="color: var(--hf-yellow);">XcodeGen</a>) over the same <code>Sources/HFMac</code> — the <code>.xcodeproj</code> is git-ignored, so <code>project.yml</code> is the source of truth. Generate it, then open:</p>
+          <p>The Xcode project is generated from <code>project.yml</code> (<a href="https://github.com/yonaskolb/XcodeGen" target="_blank" rel="noopener">XcodeGen</a>) over the same <code>Sources/HFMac</code> — the <code>.xcodeproj</code> is git-ignored, so <code>project.yml</code> is the source of truth. Generate it, then open:</p>
           <div class="code-block">
             <div class="code-header">
               <span>BASH</span>
@@ -435,9 +571,9 @@ open HFMac.xcodeproj       # ⌘R to run · Product ▸ Archive to package</code
         <!-- Tab 6: Publishing -->
         <div class="tab-content" id="tab-publishing">
           <h3>Ship it — notarized DMG &amp; the Mac App Store</h3>
-          <p>Two tracks, one codebase. Full runbook: <a href="https://github.com/8b-is/hf-mac/blob/main/APP_STORE.md" target="_blank" rel="noopener" style="color: var(--hf-yellow);">APP_STORE.md</a> · <a href="https://github.com/8b-is/hf-mac/blob/main/PUBLISHING.md" target="_blank" rel="noopener" style="color: var(--hf-yellow);">PUBLISHING.md</a>.</p>
+          <p>Two tracks, one codebase. Full runbook: <a href="https://github.com/8b-is/hf-mac/blob/main/APP_STORE.md" target="_blank" rel="noopener">APP_STORE.md</a> · <a href="https://github.com/8b-is/hf-mac/blob/main/PUBLISHING.md" target="_blank" rel="noopener">PUBLISHING.md</a>.</p>
 
-          <p><strong>① Developer-ID DMG</strong> (OSS / direct download). Push a <code>v*</code> tag and GitHub Actions builds → Developer-ID signs → <strong>notarizes + staples</strong> → cuts a Release. Runs on <a href="https://blacksmith.sh" target="_blank" rel="noopener" style="color: var(--hf-yellow);">Blacksmith</a> Apple-Silicon runners.</p>
+          <p><strong>① Developer-ID DMG</strong> (OSS / direct download). Push a <code>v*</code> tag and GitHub Actions builds → Developer-ID signs → <strong>notarizes + staples</strong> → cuts a Release. Runs on <a href="https://blacksmith.sh" target="_blank" rel="noopener">Blacksmith</a> Apple-Silicon runners.</p>
           <div class="code-block">
             <div class="code-header">
               <span>RELEASE — TAG TO SHIP</span>
@@ -454,11 +590,11 @@ git push --tags      # → notarized .dmg on Releases</code>
     </section>
   </main>
 
-  <!-- Footer (Vaked Constellation Style) -->
-  <footer>
+  <!-- Footer (Vaked Constellation Style, Lovetta Lane) -->
+  <footer role="contentinfo">
     <div class="container footer-content">
       <div class="brand">
-        <span class="brand-badge">🜂</span> HF-MAC{-1,0,+1}
+        <span class="brand-badge">🜂</span> HF-MAC<span class="mono-tern">&nbsp;{-1,0,+1}</span>
       </div>
       <p>part of the 8b-is constellation · 🜂 {-1, 0, +1} — ternary by design. entropy cannot lie.</p>
       <div class="footer-links">
@@ -482,6 +618,7 @@ git push --tags      # → notarized .dmg on Releases</code>
         <a href="https://github.com/8b-is/MLX-QUANT" target="_blank" rel="noopener">MLX-QUANT</a> ·
         <a href="https://github.com/8b-is/smart-tree" target="_blank" rel="noopener">smart-tree</a>
       </div>
+      <div class="footer-sign">fine touch from within · keep the weights warm · 0 + 1</div>
     </div>
   </footer>
 
