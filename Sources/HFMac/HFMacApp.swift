@@ -317,12 +317,19 @@ final class AppState {
     }
 
     func saveCredentials() {
-        Keychain.set(hfToken, for: "hf_token")
-        Keychain.set(osaurusKey, for: "osaurus_key")
+        do {
+            try Keychain.set(hfToken, for: "hf_token")
+            try Keychain.set(osaurusKey, for: "osaurus_key")
+        } catch {
+            settingsSavedNote = "Could not save all credentials. " + error.localizedDescription
+            return
+        }
         settingsSavedNote = "Saved to macOS Keychain ✓"
         Task {
             try? await Task.sleep(for: .seconds(3))
-            settingsSavedNote = nil
+            if settingsSavedNote == "Saved to macOS Keychain ✓" {
+                settingsSavedNote = nil
+            }
         }
     }
 }

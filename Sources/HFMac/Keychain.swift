@@ -6,17 +6,49 @@ import Security
 enum Keychain {
     private static let service = "hf.app"
 
-    static func set(_ value: String, for key: String) {
+    struct SaveError: LocalizedError {
+        let status: OSStatus
+        var errorDescription: String? {
+            "Keychain save failed (status \(status))."
+        }
+    }
+
+    // Injectable operations keep regression tests away from the user's Keychain.
+    struct Operations {
+        var update: (CFDictionary, CFDictionary) -> OSStatus
+        var add: (CFDictionary) -> OSStatus
+        var delete: (CFDictionary) -> OSStatus
+
+        static var system: Operations {
+            Operations(update: { SecItemUpdate($0, $1) },
+                       add: { SecItemAdd($0, nil) },
+                       delete: { SecItemDelete($0) })
+        }
+    }
+
+    static func set(_ value: String, for key: String,
+                    operations: Operations = .system) throws {
         let base: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: key,
         ]
-        SecItemDelete(base as CFDictionary)
-        if value.isEmpty { return }
-        var add = base
-        add[kSecValueData as String] = Data(value.utf8)
-        SecItemAdd(add as CFDictionary, nil)
+        if value.isEmpty {
+            let status = operations.delete(base as CFDictionary)
+            guard status == errSecSuccess || status == errSecItemNotFound else {
+                throw SaveError(status: status)
+            }
+            return
+        }
+        let attributes = [kSecValueData as String: Data(value.utf8)]
+        let status = operations.update(base as CFDictionary, attributes as CFDictionary)
+        if status == errSecItemNotFound {
+            let add = base.merging(attributes) { _, new in new }
+            let added = operations.add(add as CFDictionary)
+            guard added == errSecSuccess else { throw SaveError(status: added) }
+        } else if status != errSecSuccess {
+            throw SaveError(status: status)
+        }
     }
 
     static func get(_ key: String) -> String? {
