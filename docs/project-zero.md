@@ -78,6 +78,12 @@ GGUF format isn't in its loader. The supported path today is a dense quant
 gap — a loader/dequant addition upstream (parallel to the MoE repack work in
 `docs/architecture/MOE_RESEARCH_AND_FIX_PLAN.md` and [PR #39](https://github.com/shifulegend/project-zero/pull/39)).
 
+**The full analysis — measured against the actual file — is in
+[`project-zero-ternary-loader.md`](project-zero-ternary-loader.md):** type 36 is
+4 trits/byte (codes `{0,1,2}={-1,0,+1}`, LSB first) with **no stored scale**, and
+the unpack is *the engine's own native packing* — so the fix is small, but the
+scale convention is the crux.
+
 ---
 
 *fine touch from within · the C citizen of the ternary lane · 0 + 1*
