@@ -58,6 +58,7 @@ Most AI desktop applications suffer from bloated electron wrappers, bundled Pyth
 | 🌊 **MEM8 Wave Memory** | On-device wave interference recall — MEM8 frequency-band classification with entheai-aligned scoring. Zero network. |
 | 🔺 **ayeOS Ternary Ready** | `ModelSpeed` badges ternary matrices at 12.80× compression via ayeOS MEMNET daemon. |
 | 🖥️ **Project Zero (CPU)** | A third Run backend — a dependency-free **C99** ternary engine ([`shifulegend/project-zero`](https://github.com/shifulegend/project-zero)) served locally on `:8090`. The same `{-1,0,+1}` law, no GPU. See [`docs/project-zero.md`](docs/project-zero.md). |
+| 🜂 **Local Liberty Models** | The sibling Strix Halo story — the halogen MoE, the quantize → abliterate → liberate → projectZeroify recipe, and the uncensored builds in the wild. See [`docs/liberty-models.md`](docs/liberty-models.md). |
 | 🧠 **entheai Agent** | Spawn entheai subprocess for fan-out decomposition, code analysis, project-wide ops — Ecosystem tab. |
 | 🜂 **Ecosystem Tab** | Unified dashboard: Osaurus · entheai · ayeOS · MEM8 · MLX-QUANT — all status at a glance. |
 |  **Offline First** | Once local models are pulled into Osaurus, chat and prompt inference operate completely offline with no network requirement. |
