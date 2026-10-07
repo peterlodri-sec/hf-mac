@@ -780,7 +780,7 @@ struct EcosystemView: View {
                         StatusBadge(available: pm.ayeosAvailable, online: pm.ayeosReachable)
                     }
                     Text(pm.ayeosReachable
-                         ? "MEMNET reachable on :9876. LINOSV-seeded ternary matrices ready."
+                         ? "MEMNET reachable on the local socket (/tmp/ayeosd.sock). LINOSV-seeded ternary matrices ready."
                          : pm.ayeosAvailable
                          ? "Binary available at \(pm.ayeosPath ?? "ayeosd") but daemon not running. Start with `ayeosd`."
                          : "Install ayeOS (cargo install --path ../ayeos) for ternary inference.")

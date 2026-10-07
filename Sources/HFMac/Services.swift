@@ -689,39 +689,74 @@ struct AyeosCapsule: Decodable, Sendable {
     let timestamp: UInt64
 }
 
-/// ayeOS daemon client — MEMNET TCP protocol on :9876.
+/// ayeOS daemon client — MEMNET over the daemon's local **UNIX socket**
+/// (`/tmp/ayeosd.sock`, override `AYEOSD_SOCK`). The AyeFire covenant means
+/// there is no IP listener; `ayeosd` binds a local socket (no backdoor).
 /// Commands: ping, stats, capsule, get matrix.
 struct AyeosClient: Sendable {
-    var host = "127.0.0.1"
-    var port: UInt16 = 9876
+    /// The daemon's UNIX socket. ayeOS honours `AYEOSD_SOCK`; we mirror it.
+    /// (The AyeFire covenant means there is **no IP listener** — dialing
+    /// TCP:9876 is always "unreachable".)
+    var socketPath: String
 
-    /// Send a text command over TCP and return the response.
+    init(socketPath: String? = nil) {
+        self.socketPath = socketPath
+            ?? ProcessInfo.processInfo.environment["AYEOSD_SOCK"]
+            ?? "/tmp/ayeosd.sock"
+    }
+
+    /// Send a newline-terminated command over the daemon's UNIX socket and read
+    /// until it closes the connection (it writes the whole response, then drops
+    /// the stream). Unix domain sockets need a POSIX `AF_UNIX` connect —
+    /// `CFStream`'s host pair only does TCP.
     func sendCommand(_ cmd: String) async throws -> String {
-        try await withCheckedThrowingContinuation { (c: CheckedContinuation<String, Error>) in
+        let path = socketPath
+        let command = cmd
+        return try await withCheckedThrowingContinuation { (c: CheckedContinuation<String, Error>) in
             DispatchQueue.global().async {
-                var readStream: Unmanaged<CFReadStream>?
-                var writeStream: Unmanaged<CFWriteStream>?
-                CFStreamCreatePairWithSocketToHost(nil, host as CFString, UInt32(port), &readStream, &writeStream)
-                guard let read = readStream?.takeRetainedValue(),
-                      let write = writeStream?.takeRetainedValue() else {
-                    c.resume(throwing: AyeosError.unreachable("stream creation failed"))
+                let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+                guard fd >= 0 else {
+                    c.resume(throwing: AyeosError.unreachable("socket() failed"))
                     return
                 }
-                let data = (cmd + "\n").data(using: .utf8)!
-                let wData = data as CFData
-                CFWriteStreamOpen(write)
-                CFWriteStreamWrite(write, CFDataGetBytePtr(wData), CFDataGetLength(wData))
-                CFWriteStreamClose(write)
+                defer { close(fd) }
 
-                CFReadStreamOpen(read)
-                var buf = [UInt8](repeating: 0, count: 4096)
-                let n = CFReadStreamRead(read, &buf, 4096)
-                var response = ""
-                if n > 0 {
-                    response = String(bytes: buf[..<n], encoding: .utf8) ?? ""
+                var addr = sockaddr_un()
+                addr.sun_family = sa_family_t(AF_UNIX)
+                let pathBytes = Array(path.utf8)
+                guard pathBytes.count < MemoryLayout.size(ofValue: addr.sun_path) else {
+                    c.resume(throwing: AyeosError.unreachable("socket path too long: \(path)"))
+                    return
                 }
-                CFReadStreamClose(read)
-                c.resume(returning: response)
+                pathBytes.withUnsafeBufferPointer { src in
+                    withUnsafeMutablePointer(to: &addr.sun_path) { ptr in
+                        ptr.withMemoryRebound(to: UInt8.self, capacity: pathBytes.count) { dst in
+                            dst.update(from: src.baseAddress!, count: pathBytes.count)
+                        }
+                    }
+                }
+
+                let rc = withUnsafePointer(to: &addr) { a in
+                    a.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                        connect(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+                    }
+                }
+                guard rc == 0 else {
+                    c.resume(throwing: AyeosError.unreachable(String(cString: strerror(errno))))
+                    return
+                }
+
+                var payload = Array((command + "\n").utf8)
+                _ = payload.withUnsafeMutableBytes { write(fd, $0.baseAddress, $0.count) }
+
+                var response = Data()
+                var buf = [UInt8](repeating: 0, count: 65536)
+                while true {
+                    let n = read(fd, &buf, buf.count)
+                    if n <= 0 { break }
+                    response.append(contentsOf: buf[0..<n])
+                }
+                c.resume(returning: String(data: response, encoding: .utf8) ?? "")
             }
         }
     }
@@ -787,16 +822,29 @@ struct EntheaiClient: Sendable {
     var binaryPath: String = Toolchain.which("entheai", env: "ENTHEAI_BIN") ?? "/usr/local/bin/entheai"
     var timeoutSecs: UInt64 = 120
 
+    /// Build the entheai argv. The prompt is **positional** (last); `--prompt`
+    /// does not exist. `--fanout` is a flag. Kept pure so it is unit-testable.
+    static func arguments(prompt: String, model: String? = nil, yolo: Bool = false, fanout: Bool = false, companion: Bool = false) -> [String] {
+        var args: [String] = []
+        if let model { args += ["--model", model] }
+        if yolo { args += ["--yolo"] }
+        if fanout { args += ["--fanout"] }
+        if !companion { args += ["--no-companion"] }
+        args.append(prompt)
+        return args
+    }
+
     /// Run entheai with a prompt and optional flags.
-    func run(prompt: String, model: String? = nil, yolo: Bool = false) async throws -> EntheaiResult {
+    ///
+    /// entheai takes the prompt **positionally** (`entheai [OPTIONS] [PROMPT]`),
+    /// not via `--prompt` — passing `--prompt` was the launch error. `--fanout`
+    /// is a flag, not a subcommand. `--no-companion` keeps the agent headless
+    /// (no WezTerm/Ghostty window) since we spawn it from the app.
+    func run(prompt: String, model: String? = nil, yolo: Bool = false, fanout: Bool = false, companion: Bool = false) async throws -> EntheaiResult {
         guard FileManager.default.isExecutableFile(atPath: binaryPath) else {
             throw EntheaiError.notFound(binaryPath)
         }
-        var args = ["--prompt", prompt]
-        if let model { args += ["--model", model] }
-        if yolo { args += ["--yolo"] }
-
-        let capturedArgs = args  // avoid Sendable capture warning
+        let capturedArgs = EntheaiClient.arguments(prompt: prompt, model: model, yolo: yolo, fanout: fanout, companion: companion)
         return try await withCheckedThrowingContinuation { c in
             DispatchQueue.global().async {
                 let process = Process()
@@ -836,7 +884,7 @@ struct EntheaiClient: Sendable {
 
     /// Run entheai with fan-out decomposition.
     func fanout(prompt: String) async throws -> EntheaiResult {
-        try await run(prompt: prompt, yolo: true)
+        try await run(prompt: prompt, yolo: true, fanout: true)
     }
 }
 
