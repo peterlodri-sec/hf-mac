@@ -39,6 +39,9 @@ jobs:
           cp Packaging/Info.plist "$APP/Contents/Info.plist"
           echo "${{ secrets.MAS_PROFILE }}" | base64 --decode > "$APP/Contents/embedded.provisionprofile"
 
+      - name: Check entitlements (AMFI-safe)
+        run: bash scripts/check-entitlements.sh
+
       - name: Import MAS certs
         env: { P12: "${{ secrets.MAS_APP_CERT }}", P12PWD: "${{ secrets.MAS_APP_CERT_PWD }}", INST: "${{ secrets.MAS_INSTALLER_CERT }}", INSTPWD: "${{ secrets.MAS_INSTALLER_PWD }}", KC: "${{ secrets.KEYCHAIN_PWD }}" }
         run: |

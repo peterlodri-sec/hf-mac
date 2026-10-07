@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
+<!-- Sandbox-free Developer ID build. hf.app execs local companions (entheai, ayeosd, hf-mount, python3). The App Store build keeps the sandbox in hf-mac.entitlements. Keep this comment free of any double hyphen: AMFI's XML parser rejects it even though plutil does not. -->
 <dict/>
 </plist>

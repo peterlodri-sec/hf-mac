@@ -8,8 +8,26 @@ is the Mac App Store. They use *different* Apple certificates.
 ## 1. Developer-ID notarized DMG  (direct download / OSS)  — **nearly done**
 
 Workflow: `.github/workflows/release.yml` — on a `v*` tag it builds (SwiftPM) →
-bundles `HFMac.app` → Developer-ID signs (hardened runtime + our sandbox
-entitlements) → **notarizes + staples** → makes a DMG → cuts a GitHub Release.
+bundles `HFMac.app` → Developer-ID signs (hardened runtime + the **sandbox-free**
+`Packaging/hf-mac-devid.entitlements`) → **notarizes + staples** → makes a DMG →
+cuts a GitHub Release.
+
+> **Entitlements gotcha — AMFI vs plutil.** `packaging/*.entitlements` are read
+> by **AMFI** at signing time, whose XML parser is stricter than `plutil`. A
+> double hyphen (`--`) inside an XML comment makes `plutil -lint` say `OK` but
+> AMFI fail with `Failed to parse entitlements: AMFIUnserializeXML: syntax error`.
+> The failure is quiet: `codesign` exits non-zero and the binary **keeps its
+> previous (often linker-signed ad-hoc) signature**, so a build can *look*
+> signed but not be. Keep entitlement comments free of `--`, and run
+> `bash scripts/check-entitlements.sh` — it probes each file through `codesign`
+> (the same AMFI path) and is wired into both `release.yml` and `mas.yml` before
+> they sign.
+>
+> **Two entitlement sets, on purpose.** `hf-mac-devid.entitlements` (empty, no
+> sandbox) is for the Developer-ID/OSS build — it drives local companions
+> (`entheai`, `ayeosd`, `hf-mount`, `python3`) as subprocesses, which
+> app-sandbox forbids. `hf-mac.entitlements` (app-sandbox + network.client +
+> audio-input) is for the Mac App Store build.
 
 **Secrets (7). 5 are already set** from `entheai/.env`:
 

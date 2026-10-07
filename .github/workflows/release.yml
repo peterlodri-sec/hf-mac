@@ -39,6 +39,9 @@ jobs:
           cp Packaging/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
           chmod +x "$APP/Contents/MacOS/HFMac"
 
+      - name: Check entitlements (AMFI-safe)
+        run: bash scripts/check-entitlements.sh
+
       - name: Import Developer ID cert into a temporary keychain
         env:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}

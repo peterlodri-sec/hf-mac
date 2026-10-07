@@ -99,7 +99,7 @@ final class AppleVoiceBackend: VoiceBackend {
                     self.transcriptHandler?(self.transcript)
                 }
                 if error != nil || (result?.isFinal ?? false) {
-                    await self.stopDictation()
+                    _ = await self.stopDictation()
                 }
             }
         }
