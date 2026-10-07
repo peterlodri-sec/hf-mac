@@ -11,6 +11,10 @@ All notable changes to HF-MAC{-1,0,+1}.
   `ProjectZeroClient` + `scripts/setup-project-zero.sh` + `docs/project-zero.md`.
 - **`HFMac --check-tools`** — a headless companion health check: resolves the
   binaries, probes the ayeOS daemon over its socket, and prints the entheai argv.
+- **MiroFish connection** — connect to a local
+  [`666ghj/MiroFish`](https://github.com/666ghj/MiroFish) swarm-intelligence
+  prediction engine over HTTP (Flask `:5001`, Vue `:3000`). `MiroFishClient` +
+  an Ecosystem card; AGPL stays a separate process. `docs/mirofish.md`.
 - **Landing reskin** — `docs/` is now an interactive surface (animated ternary
   field, live MoE router demo, animated data-flow pipeline, reveals).
 

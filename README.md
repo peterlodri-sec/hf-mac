@@ -10,7 +10,7 @@
 [![Contributing](https://img.shields.io/badge/Contributions-Welcome-8B5CF6?logo=github&logoColor=white)](CONTRIBUTING.md)
 [![Ternary](https://img.shields.io/badge/ternary-{-1,0,+1}-8B5CF6?logo=bitcoin&logoColor=white)](https://github.com/8b-is/MLX-QUANT)
 
-Browse the Hugging Face Hub, run models **locally on Apple Silicon via [Osaurus](https://github.com/osaurus-ai/osaurus)**, and chat from a real workspace window *or* a menu-bar quick agent. **HF-MAC** is the thin, honest native front-end — the unified macOS surface for the **8b-is stack**: Osaurus (inference), entheai (agent), MEM8 (wave memory), MLX-QUANT (ternary Metal kernels), ayeOS (ternary daemon), **Project Zero** (CPU ternary, C99), FLUG-OS (packet-wave sampler), HF Accelerate (MPS training), and hf-mount (repo filesystem).
+Browse the Hugging Face Hub, run models **locally on Apple Silicon via [Osaurus](https://github.com/osaurus-ai/osaurus)**, and chat from a real workspace window *or* a menu-bar quick agent. **HF-MAC** is the thin, honest native front-end — the unified macOS surface for the **8b-is stack**: Osaurus (inference), entheai (agent), MEM8 (wave memory), MLX-QUANT (ternary Metal kernels), ayeOS (ternary daemon), **Project Zero** (CPU ternary, C99), **MiroFish** (swarm prediction), FLUG-OS (packet-wave sampler), HF Accelerate (MPS training), and hf-mount (repo filesystem).
 
 🌐 **Official Web Site & Documentation:** [https://8b-is.github.io/hf-mac/](https://8b-is.github.io/hf-mac/)
 
@@ -26,6 +26,7 @@ Browse the Hugging Face Hub, run models **locally on Apple Silicon via [Osaurus]
 - [Quick Start](#-quick-start)
 - [Osaurus Companion Setup](#-osaurus-companion-setup)
 - [Project Zero Companion Setup](#-project-zero-companion-setup)
+- [MiroFish Companion Setup](#-mirofish-companion-setup)
 - [Security & Data Sovereignty](#-security--data-sovereignty)
 - [Building & Distribution](#-building--distribution)
 - [Contributing & Community](#-contributing--community)
@@ -191,6 +192,20 @@ Project Zero is the **CPU** ternary backend — optional, and useful when you wa
 3. In `hf.app` → **Run**, pick **Project Zero (CPU)** and **Refresh**.
 
 Full notes: [`docs/project-zero.md`](docs/project-zero.md).
+
+## 🧠 MiroFish Companion Setup
+
+[MiroFish](https://github.com/666ghj/MiroFish) is a **swarm-intelligence
+prediction engine** — it builds a parallel digital world of thousands of agents
+from seed material, then returns a prediction report. hf.app **connects** to it
+(it does not ship or link it — MiroFish is AGPL-3.0):
+
+1. Clone and run it: `git clone https://github.com/666ghj/MiroFish && cd MiroFish && npm run setup:all && npm run dev`.
+2. It serves a Flask backend on `:5001` and a Vue frontend on `:3000`.
+3. In `hf.app` → **Ecosystem**, MiroFish shows **connected**; **Open MiroFish**
+   opens the frontend.
+
+Full notes: [`docs/mirofish.md`](docs/mirofish.md).
 
 ---
 

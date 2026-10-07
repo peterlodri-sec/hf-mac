@@ -104,6 +104,10 @@ final class AppState {
     var projectZeroModels: [OsaurusModel] = []
     var projectZeroReachable = false
     var projectZeroNote: String?
+    // MiroFish (local swarm-intelligence prediction — 666ghj/MiroFish, over HTTP)
+    var miroFishReachable = false
+    var miroFishProjects: [MiroFishProject] = []
+    var miroFishNote: String?
     // Shared
     var selectedModel = ""
     var chat: [ChatMessage] = []
@@ -148,6 +152,7 @@ final class AppState {
     private var osaurus: OsaurusClient { OsaurusClient(apiKey: osaurusKey.isEmpty ? nil : osaurusKey) }
     private let vaked = VakedClient()
     private let projectZero = ProjectZeroClient()
+    private let miroFish = MiroFishClient()
 
     /// Models for the active inference source — one place, so the UI never
     /// repeats the `switch` across sources.
@@ -193,6 +198,7 @@ final class AppState {
         await refreshOsaurus()
         await refreshVaked()
         await refreshProjectZero()
+        await refreshMiroFish()
         await loadMine()
         // A friendly default: show the featured author's Spaces if empty.
         if spaces.isEmpty {
@@ -267,6 +273,23 @@ final class AppState {
                 projectZeroNote = "Project Zero engine not built — run scripts/setup-project-zero.sh, then `adaptive_ai_engine --model <gguf> --server --port 8090`."
             } else {
                 projectZeroNote = "Engine built but not serving on :8090 — start it with `adaptive_ai_engine --model <gguf> --server --port 8090`."
+            }
+        }
+    }
+
+    /// Probe the local MiroFish backend (Flask, usually :5001). Absence is
+    /// normal — MiroFish is optional — so the note points at how to start it.
+    func refreshMiroFish() async {
+        do {
+            miroFishProjects = try await miroFish.projects()
+            miroFishReachable = true; miroFishNote = nil
+        } catch {
+            miroFishProjects = []; miroFishReachable = false
+            if (try? await miroFish.status()) != nil {
+                miroFishReachable = true
+                miroFishNote = "MiroFish backend reachable on :\(miroFishDefaultPort) but the project list didn't parse."
+            } else {
+                miroFishNote = "MiroFish not running — `cd MiroFish && npm run dev` (backend :\(miroFishDefaultPort), frontend :\(miroFishFrontendPort))."
             }
         }
     }

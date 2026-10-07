@@ -856,12 +856,44 @@ struct EcosystemView: View {
                 .background(Theme.glassMaterial, in: RoundedRectangle(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.glassBorder))
 
+                // MiroFish (swarm-intelligence prediction engine, over HTTP)
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Image(systemName: "brain")
+                            .foregroundStyle(state.miroFishReachable ? Theme.green : Theme.dim)
+                        Text("MiroFish").font(.headline)
+                        Spacer()
+                        StatusBadge(available: state.miroFishReachable, online: state.miroFishReachable)
+                    }
+                    Text(state.miroFishReachable
+                         ? "Swarm-intelligence prediction engine on :\(miroFishDefaultPort) — \(state.miroFishProjects.count) project\(state.miroFishProjects.count == 1 ? "" : "s"). Separate process (AGPL), spoken to over HTTP."
+                         : "Run `cd MiroFish && npm run dev` — a swarm-intelligence prediction engine (multi-agent simulation + knowledge graphs). hf.app talks to its backend on :\(miroFishDefaultPort) over HTTP.")
+                        .font(.caption).foregroundStyle(.secondary)
+
+                    HStack(spacing: 12) {
+                        Button("Refresh") { Task { await state.refreshMiroFish() } }
+                            .buttonStyle(.bordered).controlSize(.small)
+                        if state.miroFishReachable {
+                            Button("Open MiroFish") {
+                                if let url = URL(string: "http://127.0.0.1:\(miroFishFrontendPort)") {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            }
+                            .buttonStyle(.borderedProminent).tint(Theme.accent).controlSize(.small)
+                        }
+                    }
+                }
+                .padding(16)
+                .background(Theme.glassMaterial, in: RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.glassBorder))
+
                 // Integration map
                 VStack(alignment: .leading, spacing: 8) {
                     Text("integration map").font(.headline)
                     IntegrationRow(icon: "bubble.left.and.text.bubble.right", name: "Osaurus", desc: "Local inference engine", status: state.osaurusReachable)
                     IntegrationRow(icon: "brain.head.profile", name: "entheai MEM8", desc: "Wave interference recall", status: pm.entheaiAvailable)
                     IntegrationRow(icon: "triangle", name: "ayeOS", desc: "Ternary matmul (12.80×)", status: pm.ayeosReachable)
+                    IntegrationRow(icon: "brain", name: "MiroFish", desc: "Swarm prediction (HTTP)", status: state.miroFishReachable)
                     IntegrationRow(icon: "antenna.radiowaves.left.and.right", name: "FLUG-OS", desc: "802.11 packet-wave sampler", status: false)
                     IntegrationRow(icon: "cube.box", name: "MLX-QUANT", desc: "Metal GPU ternary kernels", status: true)
                     IntegrationRow(icon: "antenna.radiowaves.left.and.right", name: "coder.vaked.dev", desc: "Free remote inference", status: state.vakedReachable)

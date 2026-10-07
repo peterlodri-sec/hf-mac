@@ -608,6 +608,114 @@ struct ProjectZeroClient: Sendable {
     }
 }
 
+// MARK: - MiroFish (swarm-intelligence prediction engine)
+
+enum MiroFishError: LocalizedError, Sendable {
+    case httpError(Int)
+    case invalidResponse
+    case decodeError(Error)
+
+    var errorDescription: String? {
+        switch self {
+        case .httpError(let code): "MiroFish HTTP \(code)."
+        case .invalidResponse: "Invalid response from the MiroFish backend."
+        case .decodeError(let err): "Failed to parse the MiroFish response: \(err.localizedDescription)"
+        }
+    }
+}
+
+/// Default port for the local MiroFish Flask backend (`FLASK_PORT`, 5001).
+let miroFishDefaultPort: UInt16 = 5001
+/// The Vue frontend the user drives it from.
+let miroFishFrontendPort: UInt16 = 3000
+
+struct MiroFishProject: Identifiable, Hashable, Sendable {
+    let id: String
+    var name: String?
+
+    /// Lenient decode — MiroFish's list shape has varied across builds, so we
+    /// accept a bare array or one nested under projects/data/items.
+    static func decodeList(_ data: Data) -> [MiroFishProject] {
+        guard let any = try? JSONSerialization.jsonObject(with: data) else { return [] }
+        let rows: [[String: Any]]
+        if let a = any as? [[String: Any]] {
+            rows = a
+        } else if let d = any as? [String: Any] {
+            rows = (d["projects"] as? [[String: Any]])
+                ?? (d["data"] as? [[String: Any]])
+                ?? (d["items"] as? [[String: Any]])
+                ?? []
+        } else {
+            rows = []
+        }
+        return rows.enumerated().map { index, o in
+            let id = (o["id"] as? String)
+                ?? (o["project_id"] as? String)
+                ?? (o["graph_id"] as? String)
+                ?? "#\(index)"
+            let name = (o["name"] as? String) ?? (o["title"] as? String) ?? (o["requirement"] as? String)
+            return MiroFishProject(id: id, name: name)
+        }
+    }
+}
+
+/// `github.com/666ghj/MiroFish` — a swarm-intelligence prediction engine
+/// (multi-agent simulation + knowledge graphs over seeds). It runs as a
+/// **separate local service** — Flask backend on `:5001`, Vue frontend on
+/// `:3000` — so hf.app talks to it **over HTTP only**. MiroFish is AGPL-3.0
+/// and hf.app is MIT: the process boundary keeps the licenses apart, the same
+/// rule as mpv and steel-sky. See `docs/mirofish.md`.
+struct MiroFishClient: Sendable {
+    var base: URL
+
+    init(port: UInt16 = miroFishDefaultPort, host: String = "127.0.0.1") {
+        self.base = URL(string: "http://\(host):\(port)")!
+    }
+
+    private func req(_ path: String, method: String = "GET") -> URLRequest {
+        var r = URLRequest(url: base.appending(path: path))
+        r.httpMethod = method
+        r.timeoutInterval = 30
+        return r
+    }
+
+    /// True when the backend answers at all (any HTTP status counts).
+    var isReachable: Bool {
+        get async { (try? await status()) != nil }
+    }
+
+    /// The HTTP status of the project-list probe (any response → the server is up).
+    func status() async throws -> Int {
+        let (_, resp) = try await URLSession.shared.data(for: req("/api/graph/project/list"))
+        guard let http = resp as? HTTPURLResponse else { throw MiroFishError.invalidResponse }
+        return http.statusCode
+    }
+
+    /// The prediction projects (graph builds) the backend knows about.
+    func projects() async throws -> [MiroFishProject] {
+        let (data, resp) = try await URLSession.shared.data(for: req("/api/graph/project/list"))
+        guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
+            throw MiroFishError.httpError((resp as? HTTPURLResponse)?.statusCode ?? 500)
+        }
+        return MiroFishProject.decodeList(data)
+    }
+
+    /// Kick off a graph build from a requirement + seed. Provisional — the exact
+    /// payload is MiroFish's to define; this is the shape its UI sends.
+    func build(requirement: String, seed: String) async throws -> String {
+        var r = req("/api/graph/build", method: "POST")
+        r.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        r.httpBody = try JSONSerialization.data(withJSONObject: [
+            "requirement": requirement,
+            "seed": seed,
+        ])
+        let (data, resp) = try await URLSession.shared.data(for: r)
+        guard let http = resp as? HTTPURLResponse else { throw MiroFishError.invalidResponse }
+        guard (200..<300).contains(http.statusCode) else { throw MiroFishError.httpError(http.statusCode) }
+        return String(data: data, encoding: .utf8) ?? ""
+    }
+}
+
 // MARK: - Articles (offline-first reader)
 
 struct Article: Identifiable, Hashable, Sendable {
