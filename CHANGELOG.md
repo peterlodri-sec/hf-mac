@@ -17,6 +17,10 @@ All notable changes to HF-MAC{-1,0,+1}.
   an Ecosystem card; AGPL stays a separate process. `docs/mirofish.md`.
 - **Landing reskin** — `docs/` is now an interactive surface (animated ternary
   field, live MoE router demo, animated data-flow pipeline, reveals).
+- **`scripts/e2e-project-zero.sh`** — an end-to-end check of the Project Zero
+  lane (build → serve → probe the OpenAI surface). Verified against the live
+  engine: `models()` / `chat()` / `chatStream()` all match. Also records the
+  **ternary gap**: the loader rejects the 1.58-bit GGUF quant (type 36).
 
 ### Fixed
 - **Companion detection** — the Ecosystem tab reported entheai / ayeOS /

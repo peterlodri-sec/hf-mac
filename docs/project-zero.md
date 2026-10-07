@@ -45,6 +45,39 @@ tells you exactly which script to run.
 `8090` (`projectZeroDefaultPort`). `8080` is reserved on this Mac by the
 litellm caddy, so the engine is seated one port up.
 
+## e2e — verified against the live engine
+
+`scripts/e2e-project-zero.sh` builds the engine, serves a model, and checks the
+**exact** surface `ProjectZeroClient` speaks. Run against engine `eb46557` with
+`SmolLM2-1.7B-Instruct-Q4_K_M.gguf`:
+
+```
+OK   GET  /v1/models                              → {object:list, data:[{id:local-adaptive-engine}]}
+OK   POST /v1/chat/completions (stream:false)     → choices[0].message.content
+OK   POST /v1/chat/completions (stream:true)      → SSE choices[0].delta.content … [DONE]
+```
+
+So `models()`, `chat()`, and `chatStream()` are bit-shaped correctly for the
+real engine — not just the mock.
+
+## the ternary gap — the model it *should* run, it can't (yet)
+
+The engine's GGUF loader supports `F32 · F16 · BF16 · Q8_0 · Q4_K · Q4_0 · Q5_0
+· Q5_1 · Q5_K · Q6_K · Q2_K · Q3_K · IQ4_NL` — but **not the ternary 1.58-bit
+quant** (ggml type 36) that `tiiuae/Falcon3-*-1.58bit` ships. Loading it fails:
+
+```
+[gguf_loader] unsupported quant type 36 ('UNKNOWN') for tensor 'blk.0.attn_q.weight'
+Failed to load GGUF weights.
+```
+
+This is the lane's own headline: Project Zero is *"the same `{-1,0,+1}`
+arithmetic ambition in a dependency-free C binary"*, yet the deployed ternary
+GGUF format isn't in its loader. The supported path today is a dense quant
+(SmolLM2 Q4_K here, or BitNet's native `.bin`); the ternary GGUF is the open
+gap — a loader/dequant addition upstream (parallel to the MoE repack work in
+`docs/architecture/MOE_RESEARCH_AND_FIX_PLAN.md` and [PR #39](https://github.com/shifulegend/project-zero/pull/39)).
+
 ---
 
 *fine touch from within · the C citizen of the ternary lane · 0 + 1*
