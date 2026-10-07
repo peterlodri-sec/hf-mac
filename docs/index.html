@@ -474,7 +474,7 @@ swift run</code>
               </div>
               <div class="arch-row">
                 <span class="arch-file">Services.swift</span>
-                <span class="arch-role"><code>HubClient</code> (HF Hub REST), <code>OsaurusClient</code> (OpenAI /v1 chat), <code>AyeosClient</code> (MEMNET UNIX socket), <code>EntheaiClient</code> (subprocess agent), <code>ProcessManager</code> (lifecycle).</span>
+                <span class="arch-role"><code>HubClient</code> (HF Hub REST), <code>OsaurusClient</code> (OpenAI /v1 chat), <code>ProjectZeroClient</code> (local C99 ternary, :8090), <code>AyeosClient</code> (MEMNET UNIX socket), <code>EntheaiClient</code> (subprocess agent), <code>Toolchain</code> (PATH resolver), <code>ProcessManager</code> (lifecycle).</span>
                 <span class="arch-loc">430 loc</span>
               </div>
               <div class="arch-row">
@@ -544,22 +544,25 @@ swift run</code>
         <div class="tab-content" id="tab-keychain">
           <h3>Keychain &amp; entitlements security</h3>
           <p>The app holds two secrets — your Hugging Face token and the optional Osaurus key — in the system Keychain via macOS <code>Security.framework</code> (<code>kSecClassGenericPassword</code>, service <code>hf.app</code>). Never written to disk in the clear. Full policy: <a href="https://github.com/8b-is/hf-mac/blob/main/SECURITY.md" target="_blank" rel="noopener">SECURITY.md</a>.</p>
+          <p class="small">Two entitlement sets, on purpose: the <strong>Developer-ID build is sandbox-free</strong> (it execs local companions — entheai, ayeosd, hf-mount, python3), while the <strong>App Store build keeps the sandbox</strong>. A guard (<code>scripts/check-entitlements.sh</code>) probes both through AMFI before signing.</p>
 
           <div class="code-block">
             <div class="code-header">
               <span>ENTITLEMENTS</span>
               <button class="copy-btn">Copy</button>
             </div>
-            <code>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
-&lt;!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"&gt;
-&lt;plist version="1.0"&gt;
+            <code>&lt;!-- Developer-ID / OSS build: NO sandbox — it execs local companions.
+     Packaging/hf-mac-devid.entitlements --&gt;
+&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;plist version="1.0"&gt;&lt;dict/&gt;&lt;/plist&gt;
+
+&lt;!-- Mac App Store build: sandboxed (Packaging/hf-mac.entitlements) --&gt;
 &lt;dict&gt;
     &lt;key&gt;com.apple.security.app-sandbox&lt;/key&gt;
     &lt;true/&gt;
     &lt;key&gt;com.apple.security.network.client&lt;/key&gt;
     &lt;true/&gt;
-&lt;/dict&gt;
-&lt;/plist&gt;</code>
+&lt;/dict&gt;</code>
           </div>
         </div>
 
@@ -629,7 +632,7 @@ git push --tags      # → notarized .dmg on Releases</code>
         <a href="https://github.com/8b-is/MLX-QUANT" target="_blank" rel="noopener">MLX-QUANT</a> ·
         <a href="https://github.com/8b-is/smart-tree" target="_blank" rel="noopener">smart-tree</a>
       </div>
-      <div class="footer-sign">fine touch from within · keep the weights warm · 0 + 1 · U-Recken — Elements · Ozora — Organic Rhythm · Sky and Sand · om mani padme hum</div>
+      <div class="footer-sign">fine touch from within · keep the weights warm · 0 + 1 · U-Recken — Elements · Ozora — Organic Rhythm · Sky and Sand · Trauma (Worakls) · om mani padme hum</div>
     </div>
   </footer>
 
