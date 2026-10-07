@@ -834,6 +834,27 @@ struct EntheaiClient: Sendable {
         return args
     }
 
+    /// Gate for `run()`'s checked continuation: the timeout path and the
+    /// completion path race — `terminate()` unblocks `waitUntilExit()`, so
+    /// both would resume and trip Swift's "continuation resumed twice" trap
+    /// (the v0.12.0 background crash). First signal wins; the second is
+    /// dropped.
+    final class ContinuationGate: @unchecked Sendable {
+        private let lock = NSLock()
+        private var used = false
+
+        func resumeOnce(_ action: () -> Void) {
+            lock.lock()
+            if used {
+                lock.unlock()
+                return
+            }
+            used = true
+            lock.unlock()
+            action()
+        }
+    }
+
     /// Run entheai with a prompt and optional flags.
     ///
     /// entheai takes the prompt **positionally** (`entheai [OPTIONS] [PROMPT]`),
@@ -846,6 +867,7 @@ struct EntheaiClient: Sendable {
         }
         let capturedArgs = EntheaiClient.arguments(prompt: prompt, model: model, yolo: yolo, fanout: fanout, companion: companion)
         return try await withCheckedThrowingContinuation { c in
+            let gate = ContinuationGate()
             DispatchQueue.global().async {
                 let process = Process()
                 process.executableURL = URL(fileURLWithPath: binaryPath)
@@ -862,7 +884,7 @@ struct EntheaiClient: Sendable {
                     DispatchQueue.global().asyncAfter(deadline: deadline) {
                         if process.isRunning {
                             process.terminate()
-                            c.resume(throwing: EntheaiError.timeout)
+                            gate.resumeOnce { c.resume(throwing: EntheaiError.timeout) }
                         }
                     }
                     process.waitUntilExit()
@@ -871,12 +893,13 @@ struct EntheaiClient: Sendable {
                     let output = String(data: outData, encoding: .utf8) ?? ""
                     let error = String(data: errData, encoding: .utf8) ?? ""
                     if !error.isEmpty {
-                        c.resume(returning: EntheaiResult(output: output + "\n(stderr: \(error))", tool_calls: nil, duration_ms: nil))
+                        let combined = output + "\n(stderr: \(error))"
+                        gate.resumeOnce { c.resume(returning: EntheaiResult(output: combined, tool_calls: nil, duration_ms: nil)) }
                     } else {
-                        c.resume(returning: EntheaiResult(output: output, tool_calls: nil, duration_ms: nil))
+                        gate.resumeOnce { c.resume(returning: EntheaiResult(output: output, tool_calls: nil, duration_ms: nil)) }
                     }
                 } catch {
-                    c.resume(throwing: EntheaiError.executionError(error.localizedDescription))
+                    gate.resumeOnce { c.resume(throwing: EntheaiError.executionError(error.localizedDescription)) }
                 }
             }
         }
