@@ -7,12 +7,12 @@ struct HFMacApp: App {
     @State private var state = AppState()
 
     init() {
-        // `HFMac --check-tools` — headless self-test of companion detection
-        // (entheai · ayeosd · hf-mount · python3 · accelerate). Exit before the
-        // run loop so it can be run from a terminal or CI.
+        // `HFMac --check-tools` — headless companion health check: resolve the
+        // binaries, probe the ayeOS daemon over its socket, and preview the
+        // entheai argv. Exits before the run loop, so it runs from a terminal
+        // or CI.
         if CommandLine.arguments.contains("--check-tools") {
-            Toolchain.printReport()
-            exit(0)
+            SelfTest.run()
         }
     }
 
@@ -416,5 +416,35 @@ final class AppState {
             try? await Task.sleep(for: .seconds(3))
             settingsSavedNote = nil
         }
+    }
+}
+
+// MARK: - Self-test (`HFMac --check-tools`)
+
+/// Headless companion health check for CI and terminal use. Resolves the
+/// binaries, probes the ayeOS daemon over its UNIX socket, and previews the
+/// entheai argv — the three things the Ecosystem tab reports on.
+enum SelfTest {
+    static func run() -> Never {
+        print("companions")
+        for row in Toolchain.report() {
+            print("  \(row.name.padding(toLength: 12, withPad: " ", startingAt: 0)) \(row.path)")
+        }
+
+        print("\nayeOS daemon")
+        let daemon = AyeosClient()
+        let done = DispatchSemaphore(value: 0)
+        Task.detached {
+            let reachable = await daemon.isReachable
+            print("  \(reachable ? "reachable" : "not running") @ \(daemon.socketPath)")
+            done.signal()
+        }
+        done.wait()
+
+        print("\nentheai argv (fanout)")
+        let argv = EntheaiClient.arguments(prompt: "<prompt>", fanout: true)
+        print("  \(argv.joined(separator: " "))")
+
+        exit(0)
     }
 }

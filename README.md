@@ -156,6 +156,20 @@ Or open in Xcode:
 open Package.swift
 ```
 
+### Companion health check
+
+hf.app drives local tools — `entheai`, `ayeosd`, `hf-mount`, `python3`/`accelerate`.
+See exactly what it resolves and whether the ayeOS daemon is up:
+
+```bash
+swift run HFMac --check-tools
+# companions · ayeOS daemon (over /tmp/ayeosd.sock) · the entheai argv it would run
+```
+
+The Ecosystem tab reports the same found/not-found state; `entheai` takes a
+**positional** prompt, and `ayeosd` binds a local **UNIX socket** (the AyeFire
+covenant — no IP listener).
+
 ---
 
 ## 🔌 Osaurus Companion Setup

@@ -2,3 +2,5 @@
 .DS_Store
 .swiftpm/
 *.xcodeproj
+build_xcode/
+DerivedData/
