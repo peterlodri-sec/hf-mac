@@ -32,12 +32,30 @@ struct HFMacApp: App {
 enum InferenceSource: String, CaseIterable, Identifiable, Sendable {
     case local = "Osaurus (local)"
     case remote = "coder.vaked.dev (free)"
+    case projectZero = "Project Zero (CPU)"
 
     var id: String { rawValue }
     var icon: String {
         switch self {
         case .local: "macbook"
         case .remote: "antenna.radiowaves.left.and.right"
+        case .projectZero: "cpu"
+        }
+    }
+    /// Short label for the status pill.
+    var statusLabel: String {
+        switch self {
+        case .local: "on-device · Osaurus"
+        case .remote: "coder.vaked.dev · free"
+        case .projectZero: "on-device · Project Zero (C99)"
+        }
+    }
+    /// Placeholder shown in the empty chat view when no model is selected.
+    var emptyHint: String {
+        switch self {
+        case .local: "Pull a model in the Models tab, then talk to it here — nothing leaves your Mac."
+        case .remote: "coder.vaked.dev should list models automatically. Try Refresh if empty."
+        case .projectZero: "Start the engine first: adaptive_ai_engine --model <gguf> --server --port 8090 (see scripts/setup-project-zero.sh)."
         }
     }
 }
@@ -72,6 +90,10 @@ final class AppState {
     var vakedModels: [OsaurusModel] = []
     var vakedReachable = false
     var vakedNote: String?
+    // Project Zero (local CPU ternary — shifulegend/project-zero)
+    var projectZeroModels: [OsaurusModel] = []
+    var projectZeroReachable = false
+    var projectZeroNote: String?
     // Shared
     var selectedModel = ""
     var chat: [ChatMessage] = []
@@ -115,6 +137,44 @@ final class AppState {
     private var hub: HubClient { HubClient(token: hfToken.isEmpty ? nil : hfToken) }
     private var osaurus: OsaurusClient { OsaurusClient(apiKey: osaurusKey.isEmpty ? nil : osaurusKey) }
     private let vaked = VakedClient()
+    private let projectZero = ProjectZeroClient()
+
+    /// Models for the active inference source — one place, so the UI never
+    /// repeats the `switch` across sources.
+    var activeModels: [OsaurusModel] {
+        switch inferenceSource {
+        case .local: osaurusModels
+        case .remote: vakedModels
+        case .projectZero: projectZeroModels
+        }
+    }
+
+    /// The active source's status note (nil when healthy).
+    var activeNote: String? {
+        switch inferenceSource {
+        case .local: osaurusNote
+        case .remote: vakedNote
+        case .projectZero: projectZeroNote
+        }
+    }
+
+    /// Whether the active source answered its last probe.
+    var activeReachable: Bool {
+        switch inferenceSource {
+        case .local: osaurusReachable
+        case .remote: vakedReachable
+        case .projectZero: projectZeroReachable
+        }
+    }
+
+    /// Refresh the models of whichever source is active.
+    func refreshActive() async {
+        switch inferenceSource {
+        case .local: await refreshOsaurus()
+        case .remote: await refreshVaked()
+        case .projectZero: await refreshProjectZero()
+        }
+    }
 
     func bootstrap() async {
         hfToken = Keychain.get("hf_token") ?? ""
@@ -122,6 +182,7 @@ final class AppState {
         memory = EntheaiMemory.load()
         await refreshOsaurus()
         await refreshVaked()
+        await refreshProjectZero()
         await loadMine()
         // A friendly default: show the featured author's Spaces if empty.
         if spaces.isEmpty {
@@ -179,6 +240,27 @@ final class AppState {
         }
     }
 
+    /// Probe the local Project Zero engine (`adaptive_ai_engine --server`,
+    /// usually :8090). Absence is normal — the engine is optional — so the
+    /// note is a hint, not an error.
+    func refreshProjectZero() async {
+        do {
+            projectZeroModels = try await projectZero.models()
+            projectZeroReachable = true; projectZeroNote = nil
+            if selectedModel.isEmpty, let first = projectZeroModels.first?.id {
+                selectedModel = first
+                if !osaurusReachable && !vakedReachable { inferenceSource = .projectZero }
+            }
+        } catch {
+            projectZeroModels = []; projectZeroReachable = false
+            if ProjectZeroClient.engineBinary() == nil {
+                projectZeroNote = "Project Zero engine not built — run scripts/setup-project-zero.sh, then `adaptive_ai_engine --model <gguf> --server --port 8090`."
+            } else {
+                projectZeroNote = "Engine built but not serving on :8090 — start it with `adaptive_ai_engine --model <gguf> --server --port 8090`."
+            }
+        }
+    }
+
     func pull(_ model: String) async {
         pullingModel = model
         defer { pullingModel = nil }
@@ -226,7 +308,7 @@ final class AppState {
         generating = true; defer { generating = false }
 
         let route: MoERouteResult
-        let availableModels = inferenceSource == .local ? osaurusModels : vakedModels
+        let availableModels = activeModels
         if moeEnabled {
             route = MoEOptimizer.optimize(prompt: text, chatHistory: chat, availableModels: availableModels)
             activeDomain = route.domain
@@ -269,10 +351,10 @@ final class AppState {
         }
         var acc = ""
         let stream: AsyncThrowingStream<String, Error>
-        if inferenceSource == .local {
-            stream = osaurus.chatStream(model: selectedModel, messages: fullMessages)
-        } else {
-            stream = vaked.chatStream(model: selectedModel, messages: fullMessages)
+        switch inferenceSource {
+        case .local:      stream = osaurus.chatStream(model: selectedModel, messages: fullMessages)
+        case .remote:     stream = vaked.chatStream(model: selectedModel, messages: fullMessages)
+        case .projectZero: stream = projectZero.chatStream(model: selectedModel, messages: fullMessages)
         }
         do {
             for try await piece in stream {

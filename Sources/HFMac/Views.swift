@@ -421,7 +421,7 @@ struct RunView: View {
                 }
                 .labelsHidden().pickerStyle(.menu).frame(maxWidth: 200)
 
-                let models = state.inferenceSource == .local ? state.osaurusModels : state.vakedModels
+                let models = state.activeModels
                 Picker("", selection: $s.selectedModel) {
                     ForEach(models) { Text($0.id).tag($0.id) }
                 }
@@ -431,10 +431,7 @@ struct RunView: View {
                     Text(sp.label).font(.system(.caption2, design: .monospaced))
                         .foregroundStyle(sp.isFast ? Theme.green : Theme.dim)
                 }
-                Button { Task {
-                    if state.inferenceSource == .local { await state.refreshOsaurus() }
-                    else { await state.refreshVaked() }
-                } } label: { Image(systemName: "arrow.clockwise") }
+                Button { Task { await state.refreshActive() } } label: { Image(systemName: "arrow.clockwise") }
                     .help("Refresh models (⌘R)")
                     .keyboardShortcut("r", modifiers: [.command])
                 
@@ -497,42 +494,26 @@ struct RunView: View {
                     .background(Theme.accent.opacity(0.12), in: Capsule())
                 }
 
-                if state.inferenceSource == .local {
-                    if !state.osaurusReachable {
-                        Button("Retry Connection") { Task { await state.refreshOsaurus() } }
-                            .buttonStyle(.bordered)
-                            .tint(Theme.warn)
-                            .controlSize(.small)
-                    } else {
-                        HStack(spacing: 6) {
-                            Circle().fill(Theme.green).frame(width: 7, height: 7)
-                            Text("on-device · Osaurus").font(.caption).foregroundStyle(.secondary)
-                        }
-                        .padding(.horizontal, 10).padding(.vertical, 4)
-                        .background(Theme.glassMaterial, in: Capsule())
-                        .overlay(Capsule().strokeBorder(Theme.glassBorder))
-                    }
+                if !state.activeReachable {
+                    Button("Retry Connection") { Task { await state.refreshActive() } }
+                        .buttonStyle(.bordered)
+                        .tint(Theme.warn)
+                        .controlSize(.small)
                 } else {
-                    if !state.vakedReachable {
-                        Button("Retry Connection") { Task { await state.refreshVaked() } }
-                            .buttonStyle(.bordered)
-                            .tint(Theme.warn)
-                            .controlSize(.small)
-                    } else {
-                        HStack(spacing: 6) {
-                            Circle().fill(Theme.accent).frame(width: 7, height: 7)
-                            Text("coder.vaked.dev · free").font(.caption).foregroundStyle(.secondary)
-                        }
-                        .padding(.horizontal, 10).padding(.vertical, 4)
-                        .background(Theme.glassMaterial, in: Capsule())
-                        .overlay(Capsule().strokeBorder(Theme.glassBorder))
+                    HStack(spacing: 6) {
+                        Circle().fill(state.inferenceSource == .remote ? Theme.accent : Theme.green)
+                            .frame(width: 7, height: 7)
+                        Text(state.inferenceSource.statusLabel).font(.caption).foregroundStyle(.secondary)
                     }
+                    .padding(.horizontal, 10).padding(.vertical, 4)
+                    .background(Theme.glassMaterial, in: Capsule())
+                    .overlay(Capsule().strokeBorder(Theme.glassBorder))
                 }
             }
             .padding(14)
             .background(Theme.glassBarMaterial)
 
-            if let n = state.inferenceSource == .local ? state.osaurusNote : state.vakedNote {
+            if let n = state.activeNote {
                 HStack {
                     Text(n).font(.caption).foregroundStyle(Theme.warn)
                     Spacer()
@@ -570,14 +551,9 @@ struct RunView: View {
                                 .font(.system(size: 40)).foregroundStyle(Theme.dim.opacity(0.7))
                             Text("Chat, locally").font(.title3.weight(.semibold)).foregroundStyle(Theme.fg)
                             if state.selectedModel.isEmpty {
-                        if state.inferenceSource == .local {
-                            Text("Pull a model in the Models tab, then talk to it here — nothing leaves your Mac.")
+                            Text(state.inferenceSource.emptyHint)
                                 .font(.callout).foregroundStyle(Theme.dim).multilineTextAlignment(.center)
                         } else {
-                            Text("coder.vaked.dev should list models automatically. Try Refresh if empty.")
-                                .font(.callout).foregroundStyle(Theme.dim).multilineTextAlignment(.center)
-                        }
-                            } else {
                                 let sp = ModelSpeed.of(state.selectedModel)
                                 Text(state.selectedModel + (sp.label.isEmpty ? "" : " · \(sp.label)"))
                                     .font(.system(.caption, design: .monospaced))

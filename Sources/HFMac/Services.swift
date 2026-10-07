@@ -394,6 +394,143 @@ struct VakedClient: Sendable {
     }
 }
 
+// MARK: - Project Zero (local CPU ternary inference)
+
+enum ProjectZeroError: LocalizedError, Sendable {
+    case httpError(Int)
+    case invalidResponse
+    case decodeError(Error)
+
+    var errorDescription: String? {
+        switch self {
+        case .httpError(let code): "Project Zero HTTP \(code)."
+        case .invalidResponse: "Invalid response from the Project Zero engine."
+        case .decodeError(let err): "Failed to parse the Project Zero response: \(err.localizedDescription)"
+        }
+    }
+}
+
+/// Default port for the local engine. `8080` is taken on this Mac (litellm
+/// caddy), so Project Zero is seated on `8090` — matching `bridge/setup-project-zero.sh`.
+let projectZeroDefaultPort: UInt16 = 8090
+
+/// `shifulegend/project-zero` — a dependency-free C99 ternary (BitNet b1.58)
+/// CPU inference engine, served locally by `adaptive_ai_engine --model X.gguf
+/// --server --port 8090`. OpenAI-compatible, no key. The **C cousin** of the
+/// 8b-is stack: weights stay ternary the whole way, one scale at the end
+/// (see `docs/project-zero.md` and `8b-is-engine/docs/project-zero-bridge.md`).
+struct ProjectZeroClient: Sendable {
+    var base: URL
+
+    init(port: UInt16 = projectZeroDefaultPort, host: String = "127.0.0.1") {
+        self.base = URL(string: "http://\(host):\(port)/v1")!
+    }
+
+    private func req(_ path: String, method: String = "GET") -> URLRequest {
+        var r = URLRequest(url: base.appending(path: path))
+        r.httpMethod = method
+        r.timeoutInterval = 120          // CPU decode is slow; be patient, not wrong
+        return r
+    }
+
+    /// List models the running engine exposes (usually one: the loaded GGUF).
+    func models() async throws -> [OsaurusModel] {
+        let (data, resp) = try await URLSession.shared.data(for: req("/models"))
+        guard let httpResp = resp as? HTTPURLResponse, httpResp.statusCode == 200 else {
+            let code = (resp as? HTTPURLResponse)?.statusCode ?? 500
+            throw ProjectZeroError.httpError(code)
+        }
+        struct ZeroModelList: Decodable { let data: [OsaurusModel] }
+        do {
+            return try JSONDecoder().decode(ZeroModelList.self, from: data).data
+        } catch {
+            throw ProjectZeroError.decodeError(error)
+        }
+    }
+
+    /// Non-streaming chat (OpenAI-compatible `/v1/chat/completions`).
+    func chat(model: String, messages: [ChatMessage]) async throws -> String {
+        var r = req("/chat/completions", method: "POST")
+        r.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        r.httpBody = try JSONSerialization.data(withJSONObject: [
+            "model": model,
+            "messages": messages.map { ["role": $0.role, "content": $0.content] },
+            "stream": false,
+        ])
+        let start = Date()
+        do {
+            let (data, resp) = try await URLSession.shared.data(for: r)
+            guard let httpResp = resp as? HTTPURLResponse else { throw ProjectZeroError.invalidResponse }
+            guard httpResp.statusCode == 200 else { throw ProjectZeroError.httpError(httpResp.statusCode) }
+            let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            let choices = obj?["choices"] as? [[String: Any]]
+            let msg = choices?.first?["message"] as? [String: Any]
+            let output = (msg?["content"] as? String) ?? "(no content)"
+            trace(model: model, output: output, durationMs: Date().timeIntervalSince(start) * 1000, errorDescription: nil)
+            return output
+        } catch {
+            trace(model: model, output: nil, durationMs: Date().timeIntervalSince(start) * 1000, errorDescription: error.localizedDescription)
+            throw error
+        }
+    }
+
+    /// Fire-and-forget opt-in Langfuse trace — no-op unless env vars are set.
+    private func trace(model: String, output: String?, durationMs: Double, errorDescription: String?) {
+        guard LangfuseTracer.isEnabled else { return }
+        Task {
+            await LangfuseTracer.traceChat(model: model, inputTokens: nil, output: output, durationMs: durationMs, errorDescription: errorDescription)
+        }
+    }
+
+    /// Streaming chat — same SSE shape as `OsaurusClient`/`VakedClient`.
+    func chatStream(model: String, messages: [ChatMessage]) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    var r = req("/chat/completions", method: "POST")
+                    r.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    r.httpBody = try JSONSerialization.data(withJSONObject: [
+                        "model": model,
+                        "messages": messages.map { ["role": $0.role, "content": $0.content] },
+                        "stream": true,
+                    ])
+                    let (bytes, resp) = try await URLSession.shared.bytes(for: r)
+                    guard let http = resp as? HTTPURLResponse else { throw ProjectZeroError.invalidResponse }
+                    guard http.statusCode == 200 else { throw ProjectZeroError.httpError(http.statusCode) }
+                    for try await line in bytes.lines {
+                        guard line.hasPrefix("data:") else { continue }
+                        let payload = line.dropFirst(5).trimmingCharacters(in: .whitespaces)
+                        if payload == "[DONE]" { break }
+                        guard let d = payload.data(using: .utf8),
+                              let obj = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+                              let choices = obj["choices"] as? [[String: Any]],
+                              let delta = choices.first?["delta"] as? [String: Any],
+                              let piece = delta["content"] as? String, !piece.isEmpty
+                        else { continue }
+                        continuation.yield(piece)
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    /// Where the built engine lands after `make release` in the repo. Returns
+    /// the first executable found under the usual build paths (nil if unbuilt).
+    static func engineBinary(in repoPath: String = "\(NSHomeDirectory())/project-zero") -> String? {
+        let root = URL(fileURLWithPath: repoPath)
+        let candidates = [
+            root.appending(path: "adaptive_ai_engine"),
+            root.appending(path: "build/adaptive_ai_engine"),
+            root.appending(path: "bin/adaptive_ai_engine"),
+        ]
+        return candidates.first { FileManager.default.isExecutableFile(atPath: $0.path) }?.path
+    }
+}
+
 // MARK: - Articles (offline-first reader)
 
 struct Article: Identifiable, Hashable, Sendable {
