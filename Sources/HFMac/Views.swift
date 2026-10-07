@@ -887,6 +887,27 @@ struct EcosystemView: View {
                 .background(Theme.glassMaterial, in: RoundedRectangle(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.glassBorder))
 
+                // MOE-ptimizer (transparent OpenAI proxy — context optimization)
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Image(systemName: "arrow.triangle.branch")
+                            .foregroundStyle(state.moeptimizerReachable ? Theme.green : Theme.dim)
+                        Text("MOE-ptimizer").font(.headline)
+                        Spacer()
+                        StatusBadge(available: state.moeptimizerReachable, online: state.moeptimizerReachable)
+                    }
+                    Text(state.moeptimizerReachable
+                         ? "OpenAI-compatible context-optimizing proxy — \(state.moeptimizerModels.count) model\(state.moeptimizerModels.count == 1 ? "" : "s"). Byte-stable prefixes keep the backend's prefix cache warm."
+                         : "Run the proxy (`moeptimizer`, OpenAI-compatible on :8080 → your backend) for token savings in multi-turn agentic tasks. Select it as the Run source once up.")
+                        .font(.caption).foregroundStyle(.secondary)
+
+                    Button("Refresh") { Task { await state.refreshMoeptimizer() } }
+                        .buttonStyle(.bordered).controlSize(.small)
+                }
+                .padding(16)
+                .background(Theme.glassMaterial, in: RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.glassBorder))
+
                 // Integration map
                 VStack(alignment: .leading, spacing: 8) {
                     Text("integration map").font(.headline)
@@ -894,6 +915,7 @@ struct EcosystemView: View {
                     IntegrationRow(icon: "brain.head.profile", name: "entheai MEM8", desc: "Wave interference recall", status: pm.entheaiAvailable)
                     IntegrationRow(icon: "triangle", name: "ayeOS", desc: "Ternary matmul (12.80×)", status: pm.ayeosReachable)
                     IntegrationRow(icon: "brain", name: "MiroFish", desc: "Swarm prediction (HTTP)", status: state.miroFishReachable)
+                    IntegrationRow(icon: "arrow.triangle.branch", name: "MOE-ptimizer", desc: "Context-optimizing proxy", status: state.moeptimizerReachable)
                     IntegrationRow(icon: "antenna.radiowaves.left.and.right", name: "FLUG-OS", desc: "802.11 packet-wave sampler", status: false)
                     IntegrationRow(icon: "cube.box", name: "MLX-QUANT", desc: "Metal GPU ternary kernels", status: true)
                     IntegrationRow(icon: "antenna.radiowaves.left.and.right", name: "coder.vaked.dev", desc: "Free remote inference", status: state.vakedReachable)

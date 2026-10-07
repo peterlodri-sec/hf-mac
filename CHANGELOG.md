@@ -15,6 +15,14 @@ All notable changes to HF-MAC{-1,0,+1}.
   [`666ghj/MiroFish`](https://github.com/666ghj/MiroFish) swarm-intelligence
   prediction engine over HTTP (Flask `:5001`, Vue `:3000`). `MiroFishClient` +
   an Ecosystem card; AGPL stays a separate process. `docs/mirofish.md`.
+- **MOE-ptimizer connection** — a fourth Run source: the transparent
+  OpenAI-compatible context-optimizing proxy
+  ([`peterlodri-sec/moeptimizer`](https://github.com/peterlodri-sec/moeptimizer),
+  default `:8080`). `docs/moeptimizer.md`.
+- **Landing Web Audio** — the hero's two wave systems (cyan mind · amber
+  anchor) are now audible: a gentle oscillator pair over a filtered creek
+  bed, pointer-shaped, opt-in via the nav **sound** toggle. Plus SOTA UX
+  polish (safe-area insets, focus rings, coarse-pointer targets).
 - **Landing reskin** — `docs/` is now an interactive surface (animated ternary
   field, live MoE router demo, animated data-flow pipeline, reveals).
 - **`scripts/e2e-project-zero.sh`** — an end-to-end check of the Project Zero

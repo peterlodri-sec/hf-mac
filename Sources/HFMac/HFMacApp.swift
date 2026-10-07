@@ -43,6 +43,7 @@ enum InferenceSource: String, CaseIterable, Identifiable, Sendable {
     case local = "Osaurus (local)"
     case remote = "coder.vaked.dev (free)"
     case projectZero = "Project Zero (CPU)"
+    case moeptimizer = "MOE-ptimizer (proxy)"
 
     var id: String { rawValue }
     var icon: String {
@@ -50,6 +51,7 @@ enum InferenceSource: String, CaseIterable, Identifiable, Sendable {
         case .local: "macbook"
         case .remote: "antenna.radiowaves.left.and.right"
         case .projectZero: "cpu"
+        case .moeptimizer: "arrow.triangle.branch"
         }
     }
     /// Short label for the status pill.
@@ -58,6 +60,7 @@ enum InferenceSource: String, CaseIterable, Identifiable, Sendable {
         case .local: "on-device · Osaurus"
         case .remote: "coder.vaked.dev · free"
         case .projectZero: "on-device · Project Zero (C99)"
+        case .moeptimizer: "proxy · MOE-ptimizer (context-optimized)"
         }
     }
     /// Placeholder shown in the empty chat view when no model is selected.
@@ -66,6 +69,7 @@ enum InferenceSource: String, CaseIterable, Identifiable, Sendable {
         case .local: "Pull a model in the Models tab, then talk to it here — nothing leaves your Mac."
         case .remote: "coder.vaked.dev should list models automatically. Try Refresh if empty."
         case .projectZero: "Start the engine first: adaptive_ai_engine --model <gguf> --server --port 8090 (see scripts/setup-project-zero.sh)."
+        case .moeptimizer: "Start MOE-ptimizer: `cd moeptimizer && ./scripts/... ` (OpenAI proxy on :8080 → your backend). See docs/moeptimizer.md."
         }
     }
 }
@@ -108,6 +112,10 @@ final class AppState {
     var miroFishReachable = false
     var miroFishProjects: [MiroFishProject] = []
     var miroFishNote: String?
+    // MOE-ptimizer (transparent OpenAI proxy — peterlodri-sec/moeptimizer)
+    var moeptimizerModels: [OsaurusModel] = []
+    var moeptimizerReachable = false
+    var moeptimizerNote: String?
     // Shared
     var selectedModel = ""
     var chat: [ChatMessage] = []
@@ -154,6 +162,15 @@ final class AppState {
     private let projectZero = ProjectZeroClient()
     private let miroFish = MiroFishClient()
 
+    /// MOE-ptimizer — a transparent OpenAI-compatible proxy that optimises
+    /// context for MoE/MTP models in multi-turn agentic tasks. Default `:8080`
+    /// (override `MOEPTIMIZER_PORT`; 8080 is the litellm caddy on this Mac).
+    private var moeptimizerClient: OsaurusClient {
+        let port = ProcessInfo.processInfo.environment["MOEPTIMIZER_PORT"] ?? "8080"
+        let base = URL(string: "http://127.0.0.1:\(port)") ?? URL(string: "http://127.0.0.1:8080")!
+        return OsaurusClient(base: base)
+    }
+
     /// Models for the active inference source — one place, so the UI never
     /// repeats the `switch` across sources.
     var activeModels: [OsaurusModel] {
@@ -161,6 +178,7 @@ final class AppState {
         case .local: osaurusModels
         case .remote: vakedModels
         case .projectZero: projectZeroModels
+        case .moeptimizer: moeptimizerModels
         }
     }
 
@@ -170,6 +188,7 @@ final class AppState {
         case .local: osaurusNote
         case .remote: vakedNote
         case .projectZero: projectZeroNote
+        case .moeptimizer: moeptimizerNote
         }
     }
 
@@ -179,6 +198,7 @@ final class AppState {
         case .local: osaurusReachable
         case .remote: vakedReachable
         case .projectZero: projectZeroReachable
+        case .moeptimizer: moeptimizerReachable
         }
     }
 
@@ -188,6 +208,7 @@ final class AppState {
         case .local: await refreshOsaurus()
         case .remote: await refreshVaked()
         case .projectZero: await refreshProjectZero()
+        case .moeptimizer: await refreshMoeptimizer()
         }
     }
 
@@ -199,6 +220,7 @@ final class AppState {
         await refreshVaked()
         await refreshProjectZero()
         await refreshMiroFish()
+        await refreshMoeptimizer()
         await loadMine()
         // A friendly default: show the featured author's Spaces if empty.
         if spaces.isEmpty {
@@ -291,6 +313,20 @@ final class AppState {
             } else {
                 miroFishNote = "MiroFish not running — `cd MiroFish && npm run dev` (backend :\(miroFishDefaultPort), frontend :\(miroFishFrontendPort))."
             }
+        }
+    }
+
+    /// Probe the MOE-ptimizer proxy (OpenAI-compatible, default :8080). It sits
+    /// in front of a backend and optimises context for agentic turns; hf.app
+    /// just sees another OpenAI endpoint.
+    func refreshMoeptimizer() async {
+        do {
+            moeptimizerModels = try await moeptimizerClient.models()
+            moeptimizerReachable = true; moeptimizerNote = nil
+        } catch {
+            moeptimizerModels = []; moeptimizerReachable = false
+            let port = ProcessInfo.processInfo.environment["MOEPTIMIZER_PORT"] ?? "8080"
+            moeptimizerNote = "MOE-ptimizer not running on :\(port) — start the proxy (OpenAI-compatible) and point it at your backend. See docs/moeptimizer.md."
         }
     }
 
@@ -388,6 +424,7 @@ final class AppState {
         case .local:      stream = osaurus.chatStream(model: selectedModel, messages: fullMessages)
         case .remote:     stream = vaked.chatStream(model: selectedModel, messages: fullMessages)
         case .projectZero: stream = projectZero.chatStream(model: selectedModel, messages: fullMessages)
+        case .moeptimizer: stream = moeptimizerClient.chatStream(model: selectedModel, messages: fullMessages)
         }
         do {
             for try await piece in stream {

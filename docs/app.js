@@ -294,4 +294,74 @@
       }, { threshold: 0.02 }).observe(hero);
     } else start();
   }
+
+  /* ---------- Web Audio: the two wave systems, made audible ---------- */
+  const soundToggle = $('#soundToggle');
+  if (soundToggle) {
+    let audio = null;
+
+    const build = () => {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      const ctx = new AC();
+      const master = ctx.createGain();
+      master.gain.value = 0.0001;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 700;
+      filter.Q.value = 0.6;
+
+      const voice = (freq, detune, gain) => {
+        const o = ctx.createOscillator();
+        o.type = 'sine'; o.frequency.value = freq; o.detune.value = detune;
+        const g = ctx.createGain(); g.gain.value = gain;
+        o.connect(g).connect(filter); o.start();
+      };
+      voice(110, 0, 0.50);     // amber — the anchor
+      voice(220, 0, 0.26);     // cyan — the mind
+      voice(329.6, 6, 0.11);   // a shimmer, slightly detuned
+
+      const lfo = ctx.createOscillator(); lfo.frequency.value = 0.08;
+      const lfoG = ctx.createGain(); lfoG.gain.value = 0.25;
+      lfo.connect(lfoG).connect(master.gain); lfo.start();
+
+      // the creek — a filtered noise bed (the one clean natural sound)
+      const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+      const ch = buf.getChannelData(0);
+      for (let i = 0; i < ch.length; i++) ch[i] = (Math.random() * 2 - 1) * 0.25;
+      const noise = ctx.createBufferSource(); noise.buffer = buf; noise.loop = true;
+      const nf = ctx.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = 900; nf.Q.value = 0.7;
+      const ng = ctx.createGain(); ng.gain.value = 0.06;
+      noise.connect(nf).connect(ng).connect(master); noise.start();
+
+      filter.connect(master).connect(ctx.destination);
+      return { ctx, master, filter };
+    };
+
+    const setOn = (on) => {
+      if (on) {
+        if (!audio) audio = build();
+        if (!audio) { soundToggle.disabled = true; return; }
+        audio.ctx.resume?.();
+        audio.master.gain.cancelScheduledValues(audio.ctx.currentTime);
+        audio.master.gain.setTargetAtTime(0.16, audio.ctx.currentTime, 0.8);
+        soundToggle.classList.add('on');
+        soundToggle.setAttribute('aria-pressed', 'true');
+      } else if (audio) {
+        audio.master.gain.setTargetAtTime(0.0001, audio.ctx.currentTime, 0.3);
+        soundToggle.classList.remove('on');
+        soundToggle.setAttribute('aria-pressed', 'false');
+      }
+    };
+
+    soundToggle.addEventListener('click', () => setOn(soundToggle.getAttribute('aria-pressed') !== 'true'));
+
+    // pointer shapes the timbre — same gesture as the ternary field
+    addEventListener('pointermove', (e) => {
+      if (!audio) return;
+      const nx = e.clientX / innerWidth;
+      audio.filter.frequency.setTargetAtTime(300 + nx * 1800, audio.ctx.currentTime, 0.15);
+    }, { passive: true });
+  }
+
 })();

@@ -395,3 +395,39 @@ footer { padding: 64px 0 44px; border-top: 1px solid var(--border-color); text-a
   .marquee-track { animation: none; }
   .ternary-field { display: none; }
 }
+
+/* ---------- sound control (Web Audio) ---------- */
+.btn-sound {
+  background: var(--bg-surface); border: 1px solid var(--border-color);
+  color: var(--text-muted); font-family: inherit; font-size: 0.9rem;
+  padding: 10px 14px; gap: 6px; backdrop-filter: blur(10px);
+}
+.btn-sound:hover { color: var(--hf-yellow); border-color: var(--border-highlight); }
+.btn-sound.on {
+  color: #0a0a0a; background: linear-gradient(135deg, var(--accent-cyan), var(--hf-yellow));
+  border-color: transparent; box-shadow: 0 0 22px rgba(34, 211, 238, 0.35);
+}
+.btn-sound.on .sound-label::after { content: ""; }
+
+/* ---------- SOTA UX polish ---------- */
+/* keyboard focus, everywhere, visible */
+:where(a, button, input, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--hf-yellow); outline-offset: 3px; border-radius: 6px;
+}
+/* notch / rounded-corner safe areas */
+@supports (padding: env(safe-area-inset-left)) {
+  .navbar { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+  footer { padding-bottom: calc(40px + env(safe-area-inset-bottom)); }
+}
+/* comfortable touch + no 300ms delay */
+a, button { touch-action: manipulation; }
+@media (pointer: coarse) {
+  .btn { padding: 13px 22px; }
+  .flow-node { flex-basis: 46%; }   /* two-up on phones, easier to tap */
+  .demo-examples button { padding: 9px 14px; }
+}
+/* hero scroll cue */
+.hero-meta::after { content: "↓ scroll"; display: block; margin-top: 10px; font-size: 0.7rem;
+  letter-spacing: 0.3em; text-transform: uppercase; color: var(--text-dim); opacity: 0.7; }
+@media (prefers-reduced-motion: reduce) { .hero-meta::after { content: ""; } }
+
