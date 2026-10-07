@@ -739,7 +739,7 @@ struct EcosystemView: View {
                         StatusBadge(available: pm.entheaiAvailable)
                     }
                     Text(pm.entheaiAvailable
-                         ? "Binary available at /usr/local/bin/entheai. Fan-out decomposition ready."
+                         ? "Binary available at \(pm.entheaiPath ?? "entheai"). Fan-out decomposition ready."
                          : "Install entheai to enable agent decomposition (cargo install --path bin/entheai).")
                         .font(.caption).foregroundStyle(.secondary)
 
@@ -782,7 +782,7 @@ struct EcosystemView: View {
                     Text(pm.ayeosReachable
                          ? "MEMNET reachable on :9876. LINOSV-seeded ternary matrices ready."
                          : pm.ayeosAvailable
-                         ? "Binary available but daemon not running. Start with `ayeosd`."
+                         ? "Binary available at \(pm.ayeosPath ?? "ayeosd") but daemon not running. Start with `ayeosd`."
                          : "Install ayeOS (cargo install --path ../ayeos) for ternary inference.")
                         .font(.caption).foregroundStyle(.secondary)
 

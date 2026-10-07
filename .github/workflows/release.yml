@@ -58,8 +58,11 @@ jobs:
           IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
         run: |
           APP="dist/HFMac.app"
+          # Sandbox-free entitlements: the OSS build drives local companions
+          # (entheai, ayeosd, hf-mount, python3/accelerate) as subprocesses,
+          # which app-sandbox forbids. The App Store build keeps the sandbox.
           codesign --force --options runtime --timestamp --deep \
-            --entitlements Packaging/hf-mac.entitlements --sign "$IDENTITY" "$APP"
+            --entitlements Packaging/hf-mac-devid.entitlements --sign "$IDENTITY" "$APP"
           codesign --verify --strict --verbose=2 "$APP"
 
       - name: Notarize + staple

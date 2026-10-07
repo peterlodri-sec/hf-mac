@@ -6,6 +6,16 @@ import SwiftUI
 struct HFMacApp: App {
     @State private var state = AppState()
 
+    init() {
+        // `HFMac --check-tools` — headless self-test of companion detection
+        // (entheai · ayeosd · hf-mount · python3 · accelerate). Exit before the
+        // run loop so it can be run from a terminal or CI.
+        if CommandLine.arguments.contains("--check-tools") {
+            Toolchain.printReport()
+            exit(0)
+        }
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

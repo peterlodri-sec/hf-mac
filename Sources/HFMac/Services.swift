@@ -1,5 +1,82 @@
 import Foundation
 
+// MARK: - Toolchain (locate locally-installed companions)
+
+/// Resolves the companion binaries hf.app drives as subprocesses — `entheai`,
+/// `ayeosd`, `hf-mount`, `python3`, `accelerate`. They rarely live in
+/// `/usr/local/bin`; on a real Mac they're in `~/.cargo/bin` (cargo install),
+/// `/opt/homebrew/bin` (brew), or the Python framework. PATH is the source of
+/// truth when the app runs unsandboxed, with a set of known-good fallbacks.
+///
+/// NOTE: under `app-sandbox` these paths are unreadable — the Developer-ID
+/// build signs with `Packaging/hf-mac-devid.entitlements` (no sandbox) so the
+/// subprocess lanes work; the sandbox stays for the App Store build.
+enum Toolchain {
+    /// Checked after `PATH`, in order. Covers cargo, brew (both prefixes),
+    /// user-local, the Python.org framework, and the system.
+    static let fallbackDirs: [String] = [
+        "\(NSHomeDirectory())/.cargo/bin",
+        "/opt/homebrew/bin",
+        "/usr/local/bin",
+        "\(NSHomeDirectory())/.local/bin",
+        "\(NSHomeDirectory())/.bun/bin",
+        "/Library/Frameworks/Python.framework/Versions/3.12/bin",
+    ]
+
+    private static func isExec(_ path: String) -> Bool {
+        FileManager.default.isExecutableFile(atPath: path)
+    }
+
+    /// Resolve an executable by name.
+    /// - Parameters:
+    ///   - name: the binary name (e.g. `"entheai"`).
+    ///   - override: an explicit path that wins if it exists.
+    ///   - env: an environment variable that holds an explicit path.
+    /// - Returns: the absolute path, or nil if not found.
+    static func which(_ name: String, override: String? = nil, env: String? = nil) -> String? {
+        if let override, !override.isEmpty, isExec(override) { return override }
+        if let env, let v = ProcessInfo.processInfo.environment[env], !v.isEmpty, isExec(v) { return v }
+        if let path = ProcessInfo.processInfo.environment["PATH"] {
+            for dir in path.split(separator: ":") {
+                let candidate = "\(dir)/\(name)"
+                if isExec(candidate) { return candidate }
+            }
+        }
+        for dir in fallbackDirs {
+            let candidate = "\(dir)/\(name)"
+            if isExec(candidate) { return candidate }
+        }
+        return nil
+    }
+
+    /// Resolve the first existing path from a list (for multi-name tools).
+    static func which(_ names: [String]) -> String? {
+        for n in names { if let p = which(n) { return p } }
+        return nil
+    }
+
+    /// A human-readable dump of every companion the Ecosystem tab reports on.
+    static func report() -> [(name: String, path: String)] {
+        let probes: [(String, [String])] = [
+            ("entheai", ["entheai"]),
+            ("ayeosd", ["ayeosd", "ayeos"]),
+            ("hf-mount", ["hf-mount", "hf_mount"]),
+            ("python3", ["python3"]),
+            ("accelerate", ["accelerate"]),
+        ]
+        return probes.map { (name, names) in
+            (name, which(names) ?? "— not found")
+        }
+    }
+
+    /// Print the report (used by `HFMac --check-tools`).
+    static func printReport() {
+        for row in report() {
+            print("\(row.name.padding(toLength: 12, withPad: " ", startingAt: 0)) \(row.path)")
+        }
+    }
+}
+
 // MARK: - Errors
 
 enum HubError: LocalizedError, Sendable {
@@ -707,7 +784,7 @@ struct EntheaiResult: Decodable, Sendable {
 /// Client that runs entheai as a subprocess for agent tasks.
 /// Communicates via CLI args (one-shot mode) or stdin/stdout JSON-RPC.
 struct EntheaiClient: Sendable {
-    var binaryPath: String = "/usr/local/bin/entheai"
+    var binaryPath: String = Toolchain.which("entheai", env: "ENTHEAI_BIN") ?? "/usr/local/bin/entheai"
     var timeoutSecs: UInt64 = 120
 
     /// Run entheai with a prompt and optional flags.
@@ -793,22 +870,17 @@ struct HFMountStatus: Codable, Sendable {
 ///
 /// Install: `brew install hf-mount` or download from GitHub Releases.
 struct HFMountClient: Sendable {
-    var binaryPath: String = "/opt/homebrew/bin/hf-mount"
+    var binaryPath: String = Toolchain.which("hf-mount", env: "HF_MOUNT_BIN") ?? "/opt/homebrew/bin/hf-mount"
     var hfToken: String = ""
 
-    /// Check if hf-mount is installed.
+    /// Check if hf-mount is installed (PATH + known dirs).
     var isAvailable: Bool {
-        FileManager.default.isExecutableFile(atPath: binaryPath)
-            || FileManager.default.isExecutableFile(atPath: "/usr/local/bin/hf-mount")
-            || FileManager.default.isExecutableFile(atPath: "/usr/bin/hf-mount")
+        Toolchain.which("hf-mount", override: binaryPath) != nil
     }
 
     /// Resolve the binary path.
     private func resolveBinary() -> String? {
-        for path in [binaryPath, "/opt/homebrew/bin/hf-mount", "/usr/local/bin/hf-mount", "/usr/bin/hf-mount"] {
-            if FileManager.default.isExecutableFile(atPath: path) { return path }
-        }
-        return nil
+        Toolchain.which("hf-mount", override: binaryPath)
     }
 
     /// Mount a HF repo as a local filesystem.
@@ -907,11 +979,19 @@ enum AccelerateDevice: String, Sendable {
 ///
 /// Invoked as `python3 -m accelerate ...` with JSON serialization.
 struct AccelerateClient: Sendable {
-    var pythonPath: String = "/usr/bin/python3"
+    var pythonPath: String = Toolchain.which("python3", env: "PYTHON_BIN") ?? "/usr/bin/python3"
+    /// The `accelerate` console script, resolved directly when present — lets
+    /// `isAvailable` answer without spawning a probe subprocess.
+    var acceleratePath: String? = Toolchain.which("accelerate", env: "ACCELERATE_BIN")
     var device: AccelerateDevice = .mps
 
-    /// Check if accelerate is installed.
+    /// Check if accelerate is installed (the direct script, else `python -m`).
     var isAvailable: Bool {
+        if acceleratePath != nil { return true }
+        return pythonHasAccelerate
+    }
+
+    private var pythonHasAccelerate: Bool {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: pythonPath)
         process.arguments = ["-m", "accelerate", "--help"]
@@ -981,15 +1061,21 @@ final class ProcessManager {
     private let ayeosClient = AyeosClient()
     private let entheaiClient: EntheaiClient
 
-    init(entheaiPath: String = "/usr/local/bin/entheai") {
+    init(entheaiPath: String = Toolchain.which("entheai", env: "ENTHEAI_BIN") ?? "/usr/local/bin/entheai") {
         self.entheaiClient = EntheaiClient(binaryPath: entheaiPath)
         checkAvailability()
     }
 
-    /// Check which binaries are available on disk.
+    /// Resolved paths, for the Ecosystem tab (nil when the tool is absent).
+    var entheaiPath: String? { Toolchain.which("entheai", override: entheaiClient.binaryPath) }
+    var ayeosPath: String? { Toolchain.which(["ayeosd", "ayeos"]) }
+
+    /// Check which binaries are available on disk — resolved through PATH and
+    /// the usual local install dirs (~/.cargo/bin, /opt/homebrew/bin, …), not a
+    /// hardcoded /usr/local/bin.
     func checkAvailability() {
-        entheaiAvailable = FileManager.default.isExecutableFile(atPath: entheaiClient.binaryPath)
-        ayeosAvailable = FileManager.default.isExecutableFile(atPath: "/usr/local/bin/ayeosd")
+        entheaiAvailable = entheaiPath != nil
+        ayeosAvailable = ayeosPath != nil
     }
 
     /// Check ayeOS reachability over MEMNET.
